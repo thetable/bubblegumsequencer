@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>tracking.js - color with camera</title>
+
+  <script src="bower_components/tracking/build/tracking-min.js"></script>
+  <script src="bower_components/tracking/build/data/eye-min.js"></script>
+  <script src="bower_components/ion-sound/js/ion.sound.min.js"></script>
+
+  <style>
+  video, #canvas {
+    position: absolute;
+  }
+
+  #control {
+    position: absolute;
+    z-index: 1;
+  }
+
+  </style>
+</head>
+<body>
+  <div class="demo-frame">
+    <div class="demo-container">
+      <video id="video" width="600" height="450" preload autoplay loop muted controls></video>
+      <canvas id="canvas" width="600" height="450"></canvas>
+
+    </div>
+  </div>
+  <canvas id="control" width="600" height="80"></canvas>
+
+  <script src="src/index.js"></script>
+
+</body>
+</html>

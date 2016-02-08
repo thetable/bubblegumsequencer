@@ -1,0 +1,20 @@
+{
+  "name": "bsjs",
+  "version": "1.0.0",
+  "authors": [
+    "Hannes Hesse <hannes@backin.de>"
+  ],
+  "description": "Bubblegum Sequencer",
+  "main": "index.js",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "tracking": "tracking.js#~1.1.2"
+  }
+}

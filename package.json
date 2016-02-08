@@ -1,0 +1,17 @@
+{
+  "name": "bsjs",
+  "version": "1.0.0",
+  "description": "Bubblegum Sequencer",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "author": "Hannes Hesse",
+  "license": "MIT",
+  "devDependencies": {
+    "bower": "^1.7.7",
+    "gulp": "^3.9.0",
+    "gulp-nodeunit": "0.0.5",
+    "gulp-serve": "^1.2.0"
+  }
+}
