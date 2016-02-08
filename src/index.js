@@ -1,3 +1,6 @@
+require('tracking/build/tracking.js');
+require('ion-sound');
+
 var Vision = require('./vision.js')
 var Sound = require('./sound.js');
 

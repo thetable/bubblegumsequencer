@@ -3,7 +3,7 @@ function Sound(grid) {
     'yellow': 'bd',
   };
 
-  ion.sound({
+  window.ion.sound({
     sounds: [
       {name: "bd"},
       {name: "ch"},
@@ -24,7 +24,7 @@ function Sound(grid) {
       i >= grid.length && (i = 0);
       grid[i].forEach(function(color, index) {
         var sound = colorToSound[color];
-        ion.sound.play(sound);
+        window.ion.sound.play(sound);
       });
       i++;
     }
