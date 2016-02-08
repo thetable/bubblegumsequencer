@@ -1,6 +1,5 @@
-function Vision(video, videoCanvas, controlCanvas) {
-  var NR_COLS = 16;
-  var grid = {};
+function Vision(grid, video, videoCanvas, controlCanvas) {
+  var NR_COLS = grid.length;
   var tracker = new tracking.ColorTracker(['yellow', 'magenta']);
   tracking.track('#' + video.id, tracker, { camera: true });
   tracker.on('track', onTrack);
