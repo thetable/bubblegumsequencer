@@ -1,6 +1,13 @@
-function Vision(grid, video, videoCanvas, controlCanvas) {
+require('tracking/build/tracking.js');
+var tinycolor = require('tinycolor2');
+
+function Vision(tracking, grid, video, videoCanvas, controlCanvas) {
   var NR_COLS = grid.length;
-  var tracker = new tracking.ColorTracker(['yellow', 'magenta']);
+
+  tracking.ColorTracker.registerColor('blue', getMatcher(0, 0, 255));
+  tracking.ColorTracker.registerColor('pink', getMatcher(255, 192, 203));
+
+  var tracker = new tracking.ColorTracker(['yellow', 'blue', 'pink']);
   tracking.track('#' + video.id, tracker, { camera: true });
   tracker.on('track', onTrack);
 
@@ -71,6 +78,29 @@ function Vision(grid, video, videoCanvas, controlCanvas) {
       });
     }
   }
+
+  /*
+   * Returns a function that compares any RGB value to the RGB
+   * value specified in the outer function.
+   */
+  function getMatcher(r, g, b) {
+    var outer = tinycolor({r: r, g: g, b: b}).toHsv();
+    return function(r, g, b) {
+      var c = tinycolor({r: r, g: g, b: b}).toHsv();
+      var angle = hueDiff(c.h, outer.h);
+      return angle <= 10 && c.s > .5 && c.v > .5;
+    };
+  }
+
+  function hueDiff(hue1, hue2) {
+    var phi = Math.abs(hue1 - hue2) % 360;       // This is either the distance or 360 - distance
+    var distance = phi > 180 ? 360 - phi : phi;
+    return distance;
+  }
+
+  this.resetGrid = resetGrid;
+  this.getMatcher = getMatcher;
+  this.hueDiff = hueDiff;
 }
 
 module.exports = Vision;

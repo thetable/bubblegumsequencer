@@ -1,3 +1,4 @@
+require('ion-sound');
 function Sound(grid) {
   var colorToSound = {
     'yellow': 'bd',

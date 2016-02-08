@@ -4,7 +4,7 @@
   "description": "Bubblegum Sequencer",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "jest"
   },
   "author": "Hannes Hesse",
   "license": "MIT",
@@ -12,8 +12,11 @@
     "bower": "^1.7.7",
     "gulp": "^3.9.0",
     "gulp-nodeunit": "0.0.5",
-    "gulp-serve": "^1.2.0"
+    "gulp-serve": "^1.2.0",
     "ion-sound": "^3.0.6",
+    "jest-cli": "^0.8.2",
+    "tinycolor": "0.0.1",
+    "tinycolor2": "^1.3.0",
     "tracking": "^1.1.2"
   }
 }
