@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
 
-from board import camera, colour, geometry, pattern
+from board import camera, colour, geometry, pattern, stages
 from board.reader import read_board
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +57,7 @@ class Board:
         self.version = 0
         self.note = "starting"
         self.last_frame = time.monotonic()
+        self.frame = None        # the last one seen, for the pipeline view
 
     def snapshot(self, flip=True):
         """The pattern as the player sees it.
@@ -84,9 +85,11 @@ class Board:
                     "blind": self.stabiliser.blind or stale,
                     "settling": self.stabiliser.blocked}
 
-    def offer(self, cells, note):
+    def offer(self, cells, note, frame=None):
         with self.lock:
             self.last_frame = time.monotonic()
+            if frame is not None:
+                self.frame = frame
             changed = self.stabiliser.update(
                 pattern.readings_from(cells, cells is not None))
             self.note = note
@@ -160,7 +163,7 @@ def watch(board, cap, args, stop):
         frame = cv2.imread(args.image)
         while not stop.is_set():
             cells, _, note, _ = read_board(frame)
-            board.offer(cells, note)
+            board.offer(cells, note, frame)
             time.sleep(1 / 30)
         return
 
@@ -185,7 +188,7 @@ def watch(board, cap, args, stop):
             continue
         misses = 0
         cells, _, note, _ = read_board(frame)
-        for i, was, now_is in board.offer(cells, note):
+        for i, was, now_is in board.offer(cells, note, frame):
             print(f"  cell {i}: {was} -> {now_is}")
     cap.release()
 
@@ -198,6 +201,8 @@ def handler_for(board, args, stop):
         def do_GET(self):
             if self.path.startswith("/events"):
                 return self.stream()
+            if self.path.startswith("/stages.json"):
+                return self.pipeline()
             name = "index.html" if self.path in ("/", "") else self.path.lstrip("/")
             whole = os.path.join(APP, os.path.basename(name))
             if not os.path.exists(whole):
@@ -207,6 +212,27 @@ def handler_for(board, args, stop):
             self.send_response(200)
             self.send_header("Content-Type",
                              TYPES.get(os.path.splitext(whole)[1], "text/plain"))
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def pipeline(self):
+            """Every stage of the vision pipeline, rendered on demand.
+
+            Not part of the playing loop: it is several times the work of
+            simply reading the board, and nobody is watching it while the
+            music is on. The browser asks for the next one only once it has
+            the last, which throttles it without a timer.
+            """
+            with board.lock:
+                frame = None if board.frame is None else board.frame.copy()
+            if frame is None:
+                self.send_error(503, "no frame yet")
+                return
+            body = json.dumps({"stages": stages.render(frame)}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

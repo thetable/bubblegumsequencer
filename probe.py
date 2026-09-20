@@ -27,7 +27,7 @@ import time
 import cv2
 import numpy as np
 
-from board import camera, colour, pattern
+from board import camera, colour, pattern, stages
 from board.reader import read_board
 from board.view import FILLS, draw
 
@@ -132,6 +132,8 @@ def main():
                     help="one frame to cells.csv and the two plots, then exit")
     ap.add_argument("--shot", type=str, default=None,
                     help="render one annotated frame to this file and exit")
+    ap.add_argument("--sheet", type=str, default=None, metavar="FILE",
+                    help="every pipeline stage as one image, for a slide")
     ap.add_argument("--width", type=int, default=1920)
     ap.add_argument("--height", type=int, default=1080)
     ap.add_argument("--uvc-index", type=int, default=None,
@@ -145,6 +147,16 @@ def main():
     args = ap.parse_args()
     camera.resolve(args)
     fill = FILLS[0]
+
+    if args.sheet:
+        frame = (cv2.imread(args.image) if args.image
+                 else camera.single_frame(args))
+        if frame is None:
+            print("no frame")
+            return 1
+        cv2.imwrite(args.sheet, stages.contact_sheet(frame))
+        print(f"wrote {args.sheet}")
+        return 0
 
     if args.image or args.once:
         frame = (cv2.imread(args.image) if args.image

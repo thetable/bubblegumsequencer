@@ -130,5 +130,32 @@ button.primary.on { background: var(--pink); color: #2a0a15; }
 .voice button { padding: 6px 12px; font-size: 13px; }
 .voice button.recording { background: var(--pink); color: #2a0a15; border-color: transparent; }
 
+button.ghost { margin-left: auto; font-size: 13px; padding: 6px 12px; }
+
+.pipeline { display: grid; gap: 14px; }
+/* A display rule beats the hidden attribute, so say so explicitly. */
+[hidden] { display: none !important; }
+
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.steps button {
+  font-size: 12px; padding: 5px 10px; border-radius: 999px;
+  color: var(--quiet);
+}
+.steps button.on { background: var(--accent); color: #0d1f1d;
+                   border-color: transparent; font-weight: 600; }
+
+.pipeline figure { margin: 0; display: grid; gap: 14px;
+                   grid-template-columns: minmax(0, 1.4fr) minmax(240px, 1fr);
+                   align-items: start; }
+.pipeline img { width: 100%; border-radius: 10px; display: block;
+                background: #000; }
+.pipeline figcaption h2 { margin: 0 0 8px; font-size: 17px; }
+.pipeline figcaption p { margin: 0; color: var(--quiet); font-size: 14px; }
+.hint { font-size: 12px; color: #5d5d66; margin: 0; }
+
+@media (max-width: 760px) {
+  .pipeline figure { grid-template-columns: 1fr; }
+}
+
 footer { max-width: 1100px; margin: 0 auto; }
 #note { font-size: 12px; color: #5d5d66; margin: 0; }

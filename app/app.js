@@ -312,3 +312,76 @@ events.onerror = () => {
 };
 
 paint();
+
+// ---------------------------------------------------------------- pipeline
+
+// A second view that walks through what the vision side does to a frame, for
+// explaining it to people. Each stage is there because of something visibly
+// wrong in the one before, so going through them in order is the argument.
+//
+// It asks the server for the next set only once it has the last, which keeps
+// it live without a timer and without competing with the instrument: the
+// stages cost several times what simply reading the board does.
+
+const modeButton = document.getElementById("mode");
+const pipelineEl = document.getElementById("pipeline");
+const stepsEl = document.getElementById("steps");
+const shotEl = document.getElementById("shot");
+const titleEl = document.getElementById("stageTitle");
+const captionEl = document.getElementById("stageCaption");
+const playable = [...document.querySelectorAll(".transport, .board, .voices")];
+
+let showingPipeline = false;
+let stages = [];
+let atStage = 0;
+
+modeButton.onclick = () => {
+  showingPipeline = !showingPipeline;
+  pipelineEl.hidden = !showingPipeline;
+  playable.forEach((el) => (el.hidden = showingPipeline));
+  modeButton.textContent = showingPipeline ? "Back to the sequencer"
+                                           : "Show the pipeline";
+  modeButton.blur();
+  if (showingPipeline) pump();
+};
+
+async function pump() {
+  while (showingPipeline) {
+    try {
+      const got = await fetch("/stages.json");
+      if (!got.ok) throw new Error(got.status);
+      stages = (await got.json()).stages;
+      if (stepsEl.childElementCount !== stages.length) buildSteps();
+      showStage(Math.min(atStage, stages.length - 1));
+    } catch {
+      captionEl.textContent = "waiting for a frame from the camera";
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+}
+
+function buildSteps() {
+  stepsEl.replaceChildren();
+  stages.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = `${i + 1}. ${s.title}`;
+    b.onclick = () => { showStage(i); b.blur(); };
+    stepsEl.appendChild(b);
+  });
+}
+
+function showStage(i) {
+  if (!stages.length) return;
+  atStage = (i + stages.length) % stages.length;
+  const s = stages[atStage];
+  shotEl.src = "data:image/jpeg;base64," + s.jpeg;
+  titleEl.textContent = s.title;
+  captionEl.textContent = s.caption;
+  [...stepsEl.children].forEach((b, n) => b.classList.toggle("on", n === atStage));
+}
+
+addEventListener("keydown", (e) => {
+  if (!showingPipeline) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); showStage(atStage + 1); }
+  if (e.key === "ArrowLeft") { e.preventDefault(); showStage(atStage - 1); }
+});

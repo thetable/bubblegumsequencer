@@ -78,6 +78,21 @@ is missing or the grid has never been located, saying which. Once it is
 running, the browser shows the state instead: `live`, `settling`, or
 `cannot see the board`.
 
+## Explaining it to people
+
+The webapp has a second view, behind **Show the pipeline**, that walks through
+what the vision side does to a frame: the raw picture, the lighting flattened,
+the holes found, the tags, the grid placed, each cell sampled, each colour
+named. Left and right arrows step through, and it stays live, so moving a ball
+moves every stage.
+
+Each step is there because of something visibly wrong in the one before it,
+which is what makes it worth showing in that order.
+
+```sh
+python probe.py --sheet pipeline.png    # all the stages as one image
+```
+
 ## Looking at what it sees
 
 ```sh
