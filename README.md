@@ -69,9 +69,14 @@ python setup.py --colours
 python play.py
 ```
 
-Then open http://127.0.0.1:8099 and press space. Each colour is a voice,
-synthesised by default and replaceable by an upload or a recording from your
-microphone.
+Then open http://127.0.0.1:8099 and press space. Ctrl-c in the terminal
+stops it. Each colour is a voice, synthesised by default and replaceable by
+an upload or a recording from your microphone.
+
+It checks the rig before serving anything and refuses to start if the camera
+is missing or the grid has never been located, saying which. Once it is
+running, the browser shows the state instead: `live`, `settling`, or
+`cannot see the board`.
 
 ## Looking at what it sees
 

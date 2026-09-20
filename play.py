@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The instrument. Reads the board and serves the sequencer to a browser.
 
-Assumes the rig is set up. If it is not, setup.py does that and inspect.py
+Assumes the rig is set up. If it is not, setup.py does that and probe.py
 shows you what the camera can see.
 
 Python says what is on the board, the browser plays it, and the two never
@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
 
-from board import camera, geometry, pattern
+from board import camera, colour, geometry, pattern
 from board.reader import read_board
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -93,7 +93,43 @@ def start_camera(args):
     return cap
 
 
-def watch(board, args, stop):
+def preflight(args):
+    """Everything that has to be true before serving. Returns the camera.
+
+    Checked here rather than in the loop so that a rig which is not ready
+    says so and stops, instead of starting a server that will never have
+    anything to show. Once it is running, problems are the browser's to
+    report; before it starts, they are the terminal's.
+    """
+    if not os.path.exists(geometry.REFERENCE_FILE):
+        print(f"No {geometry.REFERENCE_FILE}: the grid has never been located.")
+        print("Run:  python setup.py")
+        return None
+    if not os.path.exists(colour.PROTOTYPE_FILE):
+        print(f"No {colour.PROTOTYPE_FILE}: no colours have been taught.")
+        print("Run:  python setup.py --colours")
+        return None
+    if args.image:
+        print(f"  replaying {args.image}, no camera")
+        return "replay"
+
+    cap = start_camera(args)
+    if cap is None:
+        print("Run probe.py to see what the camera can see, or setup.py to")
+        print("set the rig up again.")
+        return None
+
+    taught = sorted(k for k in colour.load_prototypes() if k != "empty")
+    exposure = "auto"
+    if os.path.exists(camera.EXPOSURE_FILE):
+        with open(camera.EXPOSURE_FILE) as fh:
+            exposure = json.load(fh)["exposure"]
+    print(f"  camera   ready, exposure pinned at {exposure}")
+    print(f"  colours  {', '.join(taught)}")
+    return cap
+
+
+def watch(board, cap, args, stop):
     """Read the board forever, or replay one frame when there is no camera."""
     if args.image:
         frame = cv2.imread(args.image)
@@ -101,11 +137,6 @@ def watch(board, args, stop):
             cells, _, note, _ = read_board(frame)
             board.offer(cells, note)
             time.sleep(1 / 30)
-        return
-
-    cap = start_camera(args)
-    if cap is None:
-        stop.set()
         return
 
     misses = 0
@@ -134,7 +165,7 @@ def watch(board, args, stop):
     cap.release()
 
 
-def handler_for(board, args):
+def handler_for(board, args, stop):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
             pass          # the vision loop is the interesting output, not this
@@ -162,7 +193,7 @@ def handler_for(board, args):
             self.end_headers()
             last = None
             try:
-                while True:
+                while not stop.is_set():
                     now = board.snapshot(not args.no_flip)
                     # Only the pattern is worth waking the browser for. The
                     # note changes every frame and nobody reads it that fast.
@@ -191,18 +222,39 @@ def main():
                          "player's, which are mirror images of each other")
     args = ap.parse_args()
 
-    board = Board()
-    stop = threading.Event()
-    threading.Thread(target=watch, args=(board, args, stop), daemon=True).start()
+    cap = preflight(args)
+    if cap is None:
+        return 1
 
-    http = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(board, args))
-    print(f"\n  the instrument is at  http://127.0.0.1:{args.port}\n")
+    stop = threading.Event()
+    try:
+        http = ThreadingHTTPServer(("127.0.0.1", args.port),
+                                   handler_for(board := Board(), args, stop))
+    except OSError as why:
+        print(f"Cannot listen on port {args.port}: {why}")
+        print("Something else is using it, most likely an older play.py.")
+        print(f"Find it with:  lsof -nP -iTCP:{args.port} -sTCP:LISTEN")
+        if cap != "replay":
+            cap.release()
+        return 1
+
+    # Without this, server_close waits for the event streams to finish, and
+    # an event stream by definition does not. Ctrl-c would hang.
+    http.daemon_threads = True
+    http.block_on_close = False
+
+    threading.Thread(target=watch, args=(board, cap, args, stop),
+                     daemon=True).start()
+
+    print(f"\n  playing at  http://127.0.0.1:{args.port}")
+    print("  ctrl-c to stop\n")
     try:
         http.serve_forever()
     except KeyboardInterrupt:
-        pass
+        print("\nstopped")
     finally:
         stop.set()
+        http.server_close()
     return 0
 
 
