@@ -35,6 +35,18 @@ TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
 STALE = 2.0     # seconds without a frame before we stop believing the pattern
 
 
+def link(url):
+    """The URL, marked up as a hyperlink where the terminal understands that.
+
+    Printing a bare address leaves it to the terminal to guess, and not all of
+    them linkify a raw IP. OSC 8 says outright that this is a link, and the
+    escape codes are invisible in anything that does not support it.
+    """
+    if not sys.stdout.isatty():
+        return url
+    return f"\033]8;;{url}\033\\{url}\033]8;;\033\\"
+
+
 class Board:
     """The current pattern, and whatever the vision loop last had to say."""
 
@@ -246,7 +258,8 @@ def main():
     threading.Thread(target=watch, args=(board, cap, args, stop),
                      daemon=True).start()
 
-    print(f"\n  playing at  http://127.0.0.1:{args.port}")
+    url = f"http://127.0.0.1:{args.port}"
+    print(f"\n  playing at  {link(url)}")
     print("  ctrl-c to stop\n")
     try:
         http.serve_forever()
