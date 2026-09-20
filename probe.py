@@ -21,8 +21,6 @@ fills in ones that no single frame can show. It is safe to leave on.
 
 import argparse
 import csv
-import json
-import os
 import sys
 import time
 
@@ -127,7 +125,8 @@ def report(frame, cells):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--index", type=int, default=0)
+    ap.add_argument("--index", type=int, default=None,
+                    help="OpenCV camera index; camera.json otherwise")
     ap.add_argument("--image", type=str, default=None)
     ap.add_argument("--once", action="store_true",
                     help="one frame to cells.csv and the two plots, then exit")
@@ -135,7 +134,8 @@ def main():
                     help="render one annotated frame to this file and exit")
     ap.add_argument("--width", type=int, default=1920)
     ap.add_argument("--height", type=int, default=1080)
-    ap.add_argument("--uvc-index", type=int, default=0)
+    ap.add_argument("--uvc-index", type=int, default=None,
+                    help="uvc-util camera index; camera.json otherwise")
     ap.add_argument("--display-width", type=int, default=1280)
     ap.add_argument("--no-mirror", action="store_true",
                     help="show the camera's own view instead of flipping it to "
@@ -143,6 +143,7 @@ def main():
     ap.add_argument("--learn", action="store_true",
                     help="pin each cell's position as holes become visible")
     args = ap.parse_args()
+    camera.resolve(args)
     fill = FILLS[0]
 
     if args.image or args.once:
@@ -166,11 +167,10 @@ def main():
     cap = camera.open_camera(args)
     if cap is None:
         return 1
-    if os.path.exists(camera.EXPOSURE_FILE):
-        with open(camera.EXPOSURE_FILE) as fh:
-            value = json.load(fh)["exposure"]
-        camera.set_exposure(args.uvc_index, value)
-        print(f"exposure pinned at {value}")
+    pinned = camera.settings().get("exposure")
+    if pinned is not None:
+        camera.set_exposure(args.uvc_index, pinned)
+        print(f"exposure pinned at {pinned}")
 
     win = "bubblegum, what the camera sees"
     cv2.namedWindow(win)

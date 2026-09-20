@@ -15,6 +15,7 @@ tags.pdf
 # Losing them costs one --reclick, one --dial-exposure and one --teach.
 corners.json
 warp.json
+camera.json
 exposure.json
 tag_reference.json
 prototypes.json

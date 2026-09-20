@@ -10,6 +10,7 @@ and silently ignores it, which cost an evening to discover, so everything here
 goes through uvc-util instead.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -17,7 +18,8 @@ import subprocess
 import cv2
 import numpy as np
 
-EXPOSURE_FILE = "exposure.json"
+CAMERA_FILE = "camera.json"
+EXPOSURE_FILE = "exposure.json"      # older, read if camera.json is absent
 
 # The camera's own exposure-time-abs control runs 1 to 5000 and auto picks about
 # 157, which blows the balls out. These are the settings worth trying, spaced
@@ -51,6 +53,48 @@ def uvc_util(index, *args):
     except (OSError, subprocess.SubprocessError):
         return None
     return done.stdout.strip() if done.returncode == 0 else None
+
+
+def settings():
+    """Which camera this rig uses, and how it is set.
+
+    The device name rather than the index, because an index is a property of
+    what happened to be plugged in when the machine booted, while the name is
+    a property of the rig. Unplug the board's camera and index 0 silently
+    becomes the laptop's own; the name never does that.
+
+    Two indices are kept alongside it because they are two different
+    numberings and can disagree: OpenCV counts the cameras AVFoundation
+    offers, uvc-util counts the ones on the USB bus.
+    """
+    if os.path.exists(CAMERA_FILE):
+        with open(CAMERA_FILE) as fh:
+            return json.load(fh)
+    if os.path.exists(EXPOSURE_FILE):
+        with open(EXPOSURE_FILE) as fh:
+            return {"exposure": json.load(fh)["exposure"]}
+    return {}
+
+
+def remember(**fields):
+    kept = settings()
+    kept.update({k: v for k, v in fields.items() if v is not None})
+    with open(CAMERA_FILE, "w") as fh:
+        json.dump(kept, fh, indent=1)
+    return kept
+
+
+def resolve(args):
+    """Fill in whatever the command line left out, from camera.json.
+
+    Returns the expected device name, or None if the rig has never said.
+    """
+    kept = settings()
+    if getattr(args, "index", None) is None:
+        args.index = kept.get("index", 0)
+    if getattr(args, "uvc_index", None) is None:
+        args.uvc_index = kept.get("uvc_index", 0)
+    return kept.get("device")
 
 
 def uvc_devices():
@@ -199,13 +243,12 @@ def dial_exposure(cap, index, target, corners):
 
 def single_frame(args):
     """One settled frame, exposure pinned if it has been dialled."""
-    import json
     cap = open_camera(args)
     if cap is None:
         return None
-    if os.path.exists(EXPOSURE_FILE):
-        with open(EXPOSURE_FILE) as fh:
-            set_exposure(getattr(args, "uvc_index", 0), json.load(fh)["exposure"])
+    pinned = settings().get("exposure")
+    if pinned is not None:
+        set_exposure(getattr(args, "uvc_index", 0), pinned)
     frame = grab(cap, 10)
     cap.release()
     return frame

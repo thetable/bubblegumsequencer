@@ -92,9 +92,11 @@ def step_exposure(args):
     if value is None:
         print("   Could not set the exposure. Is uvc-util next to these scripts?")
         return False
-    with open(camera.EXPOSURE_FILE, "w") as fh:
-        json.dump({"exposure": value}, fh)
-    print(f"   Saved. Every run from now on pins it at {value}.")
+    seen = camera.uvc_devices() or {}
+    camera.remember(exposure=value, index=args.index, uvc_index=args.uvc_index,
+                    device=seen.get(args.uvc_index))
+    print(f"   Saved to {camera.CAMERA_FILE}: {seen.get(args.uvc_index, 'camera')}"
+          f" at exposure {value}.")
     return True
 
 
@@ -152,9 +154,9 @@ def step_colours(args):
     cap = camera.open_camera(args)
     if cap is None:
         return False
-    if os.path.exists(camera.EXPOSURE_FILE):
-        with open(camera.EXPOSURE_FILE) as fh:
-            camera.set_exposure(args.uvc_index, json.load(fh)["exposure"])
+    pinned = camera.settings().get("exposure")
+    if pinned is not None:
+        camera.set_exposure(args.uvc_index, pinned)
 
     win = "bubblegum, teaching"
     cv2.namedWindow(win)
@@ -192,10 +194,12 @@ def step_colours(args):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--index", type=int, default=0)
+    ap.add_argument("--index", type=int, default=None,
+                    help="OpenCV camera index; camera.json otherwise")
     ap.add_argument("--width", type=int, default=1920)
     ap.add_argument("--height", type=int, default=1080)
-    ap.add_argument("--uvc-index", type=int, default=0)
+    ap.add_argument("--uvc-index", type=int, default=None,
+                    help="uvc-util camera index; camera.json otherwise")
     ap.add_argument("--display-width", type=int, default=1280)
     ap.add_argument("--no-mirror", action="store_true")
     ap.add_argument("--sens", type=float, default=1.25,
@@ -209,6 +213,7 @@ def main():
     ap.add_argument("--geometry", action="store_true")
     ap.add_argument("--colours", action="store_true")
     args = ap.parse_args()
+    camera.resolve(args)
 
     chosen = [n for n, on in (("exposure", args.exposure),
                               ("geometry", args.geometry),

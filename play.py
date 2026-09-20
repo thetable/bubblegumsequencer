@@ -99,13 +99,13 @@ def start_camera(args):
     cap = camera.open_camera(args)
     if cap is None:
         return None
-    if os.path.exists(camera.EXPOSURE_FILE):
-        with open(camera.EXPOSURE_FILE) as fh:
-            camera.set_exposure(args.uvc_index, json.load(fh)["exposure"])
+    pinned = camera.settings().get("exposure")
+    if pinned is not None:
+        camera.set_exposure(args.uvc_index, pinned)
     return cap
 
 
-def preflight(args):
+def preflight(args, expected):
     """Everything that has to be true before serving. Returns the camera.
 
     Checked here rather than in the loop so that a rig which is not ready
@@ -134,6 +134,11 @@ def preflight(args):
         print("camera instead, which is not the board.")
         print("Plug the board's camera in, then try again.")
         return None
+    if seen and expected and expected not in seen.values():
+        print(f"Expected {expected}, which is not connected.")
+        print("What is: " + ", ".join(sorted(seen.values())))
+        print("Plug it in, or run setup.py --exposure to adopt a new camera.")
+        return None
 
     cap = start_camera(args)
     if cap is None:
@@ -142,10 +147,7 @@ def preflight(args):
         return None
 
     taught = sorted(k for k in colour.load_prototypes() if k != "empty")
-    exposure = "auto"
-    if os.path.exists(camera.EXPOSURE_FILE):
-        with open(camera.EXPOSURE_FILE) as fh:
-            exposure = json.load(fh)["exposure"]
+    exposure = camera.settings().get("exposure", "auto")
     which = seen.get(args.uvc_index, "unknown") if seen else "not checked"
     print(f"  camera   {which}, exposure pinned at {exposure}")
     print(f"  colours  {', '.join(taught)}")
@@ -233,19 +235,22 @@ def handler_for(board, args, stop):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--index", type=int, default=0)
+    ap.add_argument("--index", type=int, default=None,
+                    help="OpenCV camera index; camera.json otherwise")
     ap.add_argument("--image", type=str, default=None,
                     help="replay one saved frame instead of opening the camera")
     ap.add_argument("--width", type=int, default=1920)
     ap.add_argument("--height", type=int, default=1080)
-    ap.add_argument("--uvc-index", type=int, default=0)
+    ap.add_argument("--uvc-index", type=int, default=None,
+                    help="uvc-util camera index; camera.json otherwise")
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--no-flip", action="store_true",
                     help="send the camera's column order instead of the "
                          "player's, which are mirror images of each other")
     args = ap.parse_args()
+    expected = camera.resolve(args)
 
-    cap = preflight(args)
+    cap = preflight(args, expected)
     if cap is None:
         return 1
 

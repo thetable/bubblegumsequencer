@@ -111,6 +111,14 @@ Three commands, on one library.
 | `board/view.py` | drawing the board on a frame |
 | `app/` | the instrument itself: clock, voices, samples |
 
-Calibration lives in `corners.json`, `warp.json`, `exposure.json`,
+Calibration lives in `camera.json`, `corners.json`, `warp.json`,
 `tag_reference.json` and `prototypes.json`. None of it is in the repo: it
 describes one rig at one moment, and it is rewritten as the tools run.
+
+`camera.json` records the camera by **name**, not just by index, and both
+commands check it before trusting what they opened. An index is a property
+of what happened to be plugged in when the machine booted: unplug the board's
+camera and index 0 silently becomes the laptop's own, which opens perfectly
+happily and shows you your face. `--index` and `--uvc-index` still override
+it. The two are different numberings, so they can disagree: OpenCV counts the
+cameras AVFoundation offers, uvc-util counts the ones on the USB bus.
