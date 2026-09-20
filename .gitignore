@@ -1,0 +1,36 @@
+# Captured frames and the pictures the tools draw on them. Regenerated every
+# run, tens of megabytes, and only ever interesting for the few minutes you
+# are looking at one.
+*.png
+*.csv
+
+# The printable tag sheet: make_tags.py produces it in a second.
+tags.pdf
+
+# Calibration and learning. All of it describes this rig at this moment
+# rather than the project, all of it is rewritten as the tools run, and
+# tag_reference.json changes on literally every frame. Deliberately not
+# tracked: a repo that is dirty after every run is a repo nobody commits to.
+#
+# Losing them costs one --reclick, one --dial-exposure and one --teach.
+corners.json
+warp.json
+exposure.json
+tag_reference.json
+prototypes.json
+
+# Built from github.com/jtfrey/uvc-util, which is not ours to vendor, and a
+# Mac-only binary besides. The build command is in cell_probe.py.
+uvc-util
+
+# Working notes, kept on disk and out of a public repo. HANDOVER.md is the
+# original brief, PLAN.md the state, LOG.md the reasoning and measurements
+# behind every decision. README.md is the only one meant for other people.
+HANDOVER.md
+PLAN.md
+LOG.md
+
+__pycache__/
+*.pyc
+.DS_Store
+.venv/

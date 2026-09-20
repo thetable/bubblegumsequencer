@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bubblegum Sequencer</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header>
+  <h1>Bubblegum Sequencer</h1>
+  <div id="link" class="state">connecting</div>
+</header>
+
+<section class="transport">
+  <button id="play" class="primary">Play</button>
+  <label>Tempo <input id="tempo" type="range" min="50" max="200" value="110">
+    <output id="tempoOut">110</output> bpm</label>
+  <label>Volume <input id="volume" type="range" min="0" max="100" value="80">
+    <output id="volumeOut">80</output></label>
+</section>
+
+<section class="board">
+  <div id="grid" class="grid" aria-label="the board"></div>
+</section>
+
+<section class="voices" id="voices"></section>
+
+<footer>
+  <p id="note">waiting for the board</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

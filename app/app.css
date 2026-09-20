@@ -1,0 +1,134 @@
+:root {
+  --bg: #121214;
+  --panel: #1c1c20;
+  --line: #2e2e34;
+  --ink: #ededf0;
+  --quiet: #8b8b95;
+  --pink: #f0608f;
+  --yellow: #e8d045;
+  --blue: #9fc4e8;
+  --green: #86cc7a;
+  --accent: #6fd3c7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px 16px 48px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto 20px;
+}
+
+h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: 0.02em; }
+
+.state {
+  font-size: 13px;
+  color: var(--quiet);
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.state.live { color: var(--accent); border-color: var(--accent); }
+.state.blind { color: var(--yellow); border-color: var(--yellow); }
+
+section { max-width: 1100px; margin: 0 auto 24px; }
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.transport label { display: flex; align-items: center; gap: 10px; font-size: 13px;
+                   color: var(--quiet); }
+.transport output { color: var(--ink); min-width: 3ch; text-align: right;
+                    font-variant-numeric: tabular-nums; }
+
+input[type=range] { accent-color: var(--accent); width: 140px; }
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: #26262c;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+button:hover { border-color: #46464f; }
+button.primary { background: var(--accent); color: #0d1f1d; border-color: transparent;
+                 font-weight: 600; min-width: 84px; }
+button.primary.on { background: var(--pink); color: #2a0a15; }
+
+/* The board: 16 sixteenth notes across, four rows that only let you stack. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 5px;
+}
+
+.cell {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #1a1a1f;
+  border: 1px solid #292930;
+}
+.cell.pink   { background: var(--pink);   border-color: var(--pink); }
+.cell.yellow { background: var(--yellow); border-color: var(--yellow); }
+.cell.blue   { background: var(--blue);   border-color: var(--blue); }
+.cell.green  { background: var(--green);  border-color: var(--green); }
+
+/* The column being played. A ring rather than a fill, so it never hides a
+   ball, but bright enough to follow at 7 steps a second. */
+.cell { transition: box-shadow 60ms linear, transform 60ms linear; }
+.cell.col-now {
+  box-shadow: 0 0 0 3px var(--accent), 0 0 14px 2px rgba(111, 211, 199, 0.55);
+  transform: scale(1.12);
+}
+
+.beat-marks {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+.beat-marks span { text-align: center; font-size: 11px; color: #4d4d57;
+                   font-variant-numeric: tabular-nums; }
+.beat-marks span.strong { color: var(--quiet); }
+
+.voices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.voice {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+.voice h2 { margin: 0 0 4px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.voice .dot { width: 12px; height: 12px; border-radius: 50%; }
+.voice .source { font-size: 12px; color: var(--quiet); margin: 0 0 10px; }
+.voice .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.voice button { padding: 6px 12px; font-size: 13px; }
+.voice button.recording { background: var(--pink); color: #2a0a15; border-color: transparent; }
+
+footer { max-width: 1100px; margin: 0 auto; }
+#note { font-size: 12px; color: #5d5d66; margin: 0; }
