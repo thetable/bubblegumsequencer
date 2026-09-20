@@ -1,6 +1,6 @@
 import sys
 import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pattern import Stabiliser, readings_from, EMPTY
+from board.pattern import Stabiliser, readings_from, EMPTY
 
 def frames(s, reading, n, t0, step=1/30):
     out=[]

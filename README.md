@@ -27,7 +27,7 @@ clang -fno-objc-arc -O2 -Wno-everything -framework Foundation \
 
 Once per rig, in this order.
 
-**1. Focus the lens.** Live preview with a sharpness trace.
+**1. Focus the lens**, if it has never been set or has moved.
 
 ```sh
 python focus_check.py
@@ -41,36 +41,32 @@ and check the ruler on the sheet before cutting.
 python make_tags.py          # writes tags.pdf
 ```
 
-**3. Pin the exposure.** This matters more than anything else here. Left on
-auto, the camera meters a mostly-black board, opens right up, and the room
-coming through the empty holes ends up as bright as the balls while the balls
-themselves blow out. Put some balls on the board first.
+**3. Everything else**, as one guided walk: exposure, then geometry, then
+colours. It tells you what to do at each step.
 
 ```sh
-python cell_probe.py --dial-exposure
+python setup.py
 ```
 
-**4. Record where the grid sits.** Room lights on, so the empty holes are
-visible. This is the only time you click anything: the four corner holes, in
-the order it asks.
+The order is not arbitrary. Exposure first, because geometry and colour are
+both read off a correctly exposed frame; left on auto the camera meters a
+mostly-black board, opens right up, and the room coming through the empty
+holes ends up as bright as the balls while the balls themselves blow out.
+Geometry second, because teaching a colour means sampling cells, which means
+knowing where they are.
+
+Individual steps, when only one thing has changed:
 
 ```sh
-python cell_probe.py --reclick
-```
-
-After this the tags carry the geometry, and the board can be moved.
-
-**5. Teach the colours.** Guided, one colour at a time. Include balls near the
-edges of the board, where the light is weakest.
-
-```sh
-python live_view.py --teach
+python setup.py --exposure
+python setup.py --geometry     # --reclick to redo the corner clicks
+python setup.py --colours
 ```
 
 ## Playing it
 
 ```sh
-python server.py
+python play.py
 ```
 
 Then open http://127.0.0.1:8099 and press space. Each colour is a voice,
@@ -80,25 +76,35 @@ microphone.
 ## Looking at what it sees
 
 ```sh
-python live_view.py          # the grid, live, with each ball labelled
-python cell_probe.py         # one frame, to cells.csv and two diagnostic plots
+python probe.py              # the grid, live, with each ball labelled
+python probe.py --once       # one frame, to cells.csv and two plots
 ```
 
-`live_view.py` keys: `space` freeze, `s` save the frame, `c` cycle what the
-cells are filled with. `--learn` pins each cell's position more firmly as
-holes become visible, which fills in ones that no single frame can show.
+Keys: `space` freeze, `s` save the frame, `c` cycle what the cells are filled
+with. `--learn` pins each cell's position more firmly as holes become
+visible, which fills in ones that no single frame can show.
 
 ## The parts
 
+Three commands, on one library.
+
 | | |
 |---|---|
-| `cell_probe.py` | camera, exposure, finding the holes, the geometry, teaching colours |
-| `live_view.py` | the same loop with a window on it, and the guided teach mode |
-| `pattern.py` | what is on the board, as opposed to what the last frame showed |
-| `server.py` | serves the instrument and streams the pattern to it |
-| `app/` | the instrument: clock, voices, samples |
+| `play.py` | the instrument: serves the sequencer and streams the board to it |
+| `setup.py` | the guided walk: exposure, geometry, colours |
+| `probe.py` | a window on what the camera sees, for when something is wrong |
 | `make_tags.py` | the printable tag sheet |
-| `focus_check.py` | setting the lens, once |
+| `focus_check.py` | setting the lens |
+
+| | |
+|---|---|
+| `board/camera.py` | opening it, and pinning the exposure through uvc-util |
+| `board/geometry.py` | finding the holes, the warp, the tags, the reference |
+| `board/colour.py` | sampling a cell, teaching a colour, classifying |
+| `board/pattern.py` | what is on the board, not what the last frame showed |
+| `board/reader.py` | one frame in, sixty-four classified cells out |
+| `board/view.py` | drawing the board on a frame |
+| `app/` | the instrument itself: clock, voices, samples |
 
 Calibration lives in `corners.json`, `warp.json`, `exposure.json`,
 `tag_reference.json` and `prototypes.json`. None of it is in the repo: it

@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""The bridge: Python says what is on the board, the browser plays it.
+"""The instrument. Reads the board and serves the sequencer to a browser.
 
-Runs the vision loop in a thread and serves two things over plain HTTP: the
-instrument, and a stream of the pattern as it changes.
+Assumes the rig is set up. If it is not, setup.py does that and inspect.py
+shows you what the camera can see.
 
-Server-sent events rather than a WebSocket, which is what HANDOVER.md section
-6 assumed. The split it asks for is the point and is unchanged, but nothing
-needs to travel from the browser back to the board, and one-way is what SSE
-is for: no handshake, no framing, no dependency, and `EventSource` is three
-lines in the browser. If the instrument ever needs to talk back, this is the
-piece to swap.
+Python says what is on the board, the browser plays it, and the two never
+wait for each other: vision can be slow and careful while the clock stays
+solid. Server-sent events rather than a WebSocket, which is what the original
+plan assumed: nothing travels back from the browser, and one-way needs no
+handshake, no framing and no dependency.
 
 Usage:
-    python server.py                      # camera, then open the printed URL
-    python server.py --image frame.png    # replay one frame, for working offline
+    python play.py                      # then open the printed address
+    python play.py --image frame.png    # replay one frame, for working offline
 """
 
 import argparse
@@ -26,14 +25,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
 
-import cell_probe as cp
-import live_view as lv
-import pattern as pat
+from board import camera, geometry, pattern
+from board.reader import read_board
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP = os.path.join(HERE, "app")
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
-
 
 STALE = 2.0     # seconds without a frame before we stop believing the pattern
 
@@ -41,9 +38,9 @@ STALE = 2.0     # seconds without a frame before we stop believing the pattern
 class Board:
     """The current pattern, and whatever the vision loop last had to say."""
 
-    def __init__(self, columns=cp.COLS, rows=cp.ROWS):
+    def __init__(self, columns=geometry.COLS, rows=geometry.ROWS):
         self.columns, self.rows = columns, rows
-        self.stabiliser = pat.Stabiliser(columns * rows)
+        self.stabiliser = pattern.Stabiliser(columns * rows)
         self.lock = threading.Lock()
         self.version = 0
         self.note = "starting"
@@ -61,11 +58,10 @@ class Board:
                     for r in range(self.rows)]
             if flip:
                 grid = [list(reversed(row)) for row in grid]
-            # Frames stopping is the failure that does not announce itself: the
-            # pattern is still there and still correct-looking, just from
+            # Frames stopping is the failure that does not announce itself:
+            # the pattern is still there and still correct-looking, just from
             # whenever the camera last worked. A machine going to sleep is
-            # enough to cause it, so silence past a couple of seconds counts as
-            # not seeing the board.
+            # enough to cause it.
             silent = time.monotonic() - self.last_frame
             stale = silent > STALE
             return {"version": self.version,
@@ -79,11 +75,22 @@ class Board:
     def offer(self, cells, note):
         with self.lock:
             self.last_frame = time.monotonic()
-            changed = self.stabiliser.update(pat.readings_from(cells, cells is not None))
+            changed = self.stabiliser.update(
+                pattern.readings_from(cells, cells is not None))
             self.note = note
             if changed:
                 self.version += 1
             return changed
+
+
+def start_camera(args):
+    cap = camera.open_camera(args)
+    if cap is None:
+        return None
+    if os.path.exists(camera.EXPOSURE_FILE):
+        with open(camera.EXPOSURE_FILE) as fh:
+            camera.set_exposure(args.uvc_index, json.load(fh)["exposure"])
+    return cap
 
 
 def watch(board, args, stop):
@@ -91,7 +98,7 @@ def watch(board, args, stop):
     if args.image:
         frame = cv2.imread(args.image)
         while not stop.is_set():
-            cells, _, note, _ = lv.read_board(frame)
+            cells, _, note, _ = read_board(frame)
             board.offer(cells, note)
             time.sleep(1 / 30)
         return
@@ -120,22 +127,11 @@ def watch(board, args, stop):
                     cap, misses = again, 0
                     print("  camera is back")
             continue
-        if misses:
-            misses = 0
-        cells, _, note, _ = lv.read_board(frame)
+        misses = 0
+        cells, _, note, _ = read_board(frame)
         for i, was, now_is in board.offer(cells, note):
             print(f"  cell {i}: {was} -> {now_is}")
     cap.release()
-
-
-def start_camera(args):
-    cap = cp.open_camera(args)
-    if cap is None:
-        return None
-    if os.path.exists(cp.EXPOSURE_FILE):
-        with open(cp.EXPOSURE_FILE) as fh:
-            cp.set_exposure(args.uvc_index, json.load(fh)["exposure"])
-    return cap
 
 
 def handler_for(board, args):
@@ -168,13 +164,11 @@ def handler_for(board, args):
             try:
                 while True:
                     now = board.snapshot(not args.no_flip)
-                    # Only the pattern is worth waking the browser for; the
-                    # note changes every frame and nobody is reading it that
-                    # fast. A heartbeat keeps the connection from idling out.
+                    # Only the pattern is worth waking the browser for. The
+                    # note changes every frame and nobody reads it that fast.
                     key = (now["version"], now["blind"], now["settling"])
                     if key != last:
-                        self.wfile.write(
-                            f"data: {json.dumps(now)}\n\n".encode())
+                        self.wfile.write(f"data: {json.dumps(now)}\n\n".encode())
                         self.wfile.flush()
                         last = key
                     time.sleep(0.05)
@@ -199,8 +193,7 @@ def main():
 
     board = Board()
     stop = threading.Event()
-    eyes = threading.Thread(target=watch, args=(board, args, stop), daemon=True)
-    eyes.start()
+    threading.Thread(target=watch, args=(board, args, stop), daemon=True).start()
 
     http = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(board, args))
     print(f"\n  the instrument is at  http://127.0.0.1:{args.port}\n")
