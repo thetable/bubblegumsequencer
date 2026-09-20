@@ -53,6 +53,31 @@ def uvc_util(index, *args):
     return done.stdout.strip() if done.returncode == 0 else None
 
 
+def uvc_devices():
+    """The UVC cameras uvc-util can see, as {index: name}.
+
+    Worth asking, because OpenCV will happily open whatever camera is at the
+    index you gave it. With the board's camera unplugged that is the laptop's
+    own, and everything downstream then reports cheerfully on a picture of
+    your face.
+    """
+    exe = shutil.which("uvc-util") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), os.pardir, "uvc-util")
+    if not os.path.exists(exe):
+        return None                      # cannot tell, which is not the same
+    try:
+        done = subprocess.run([exe, "-d"], capture_output=True, text=True,
+                              timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    found = {}
+    for line in done.stdout.splitlines():
+        bits = line.split()
+        if bits and bits[0].isdigit():
+            found[int(bits[0])] = bits[-1]
+    return found
+
+
 def clipped_fraction(frame, corners=None):
     """How much of the board is pinned at 255.
 

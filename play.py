@@ -125,6 +125,16 @@ def preflight(args):
         print(f"  replaying {args.image}, no camera")
         return "replay"
 
+    # Ask uvc-util what is actually plugged in before trusting OpenCV, which
+    # opens whatever is at the index you gave it. Unplug the board's camera
+    # and index 0 becomes the laptop's own, which opens perfectly happily.
+    seen = camera.uvc_devices()
+    if seen is not None and not seen:
+        print("No UVC camera is connected. OpenCV would open the laptop's own")
+        print("camera instead, which is not the board.")
+        print("Plug the board's camera in, then try again.")
+        return None
+
     cap = start_camera(args)
     if cap is None:
         print("Run probe.py to see what the camera can see, or setup.py to")
@@ -136,7 +146,8 @@ def preflight(args):
     if os.path.exists(camera.EXPOSURE_FILE):
         with open(camera.EXPOSURE_FILE) as fh:
             exposure = json.load(fh)["exposure"]
-    print(f"  camera   ready, exposure pinned at {exposure}")
+    which = seen.get(args.uvc_index, "unknown") if seen else "not checked"
+    print(f"  camera   {which}, exposure pinned at {exposure}")
     print(f"  colours  {', '.join(taught)}")
     return cap
 
