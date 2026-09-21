@@ -2,7 +2,8 @@
 """Getting the rig ready. Everything you do once, in the order it has to happen.
 
     python setup.py              # the whole walk
-    python setup.py --exposure   # just one step
+    python setup.py --tools      # just one step
+    python setup.py --exposure
     python setup.py --geometry
     python setup.py --colours
 
@@ -71,6 +72,33 @@ def click_corners(frame, preview_width=1280):
 
     cv2.destroyWindow(win)
     return picked
+
+
+# ---------------------------------------------------------------------- tools
+
+
+def step_tools(args):
+    """uvc-util, without which none of the rest is worth measuring.
+
+    First, because it is the only step that needs the internet rather than
+    the rig, and because everything after it is read off a frame whose
+    exposure it sets.
+    """
+    if camera.uvc_path():
+        return True
+
+    print("\n--- tools ---")
+    print("uvc-util is missing. Without it the exposure stays on automatic:")
+    print("the camera meters a mostly-black board, opens right up, and the")
+    print("room coming through the empty holes reads as bright as the balls.")
+    print("Every step after this one is measured off that frame.")
+    print(f"\nIt is a small Mac-only utility from {camera.UVC_SOURCE}.")
+    print("Building it needs git and clang, and takes a few seconds.")
+
+    if input("\nClone and compile it now? [Y/n] ").strip().lower() in ("n", "no"):
+        print("  skipped. Build it yourself and run setup.py again.")
+        return False
+    return camera.build_uvc_util() is not None
 
 
 # ---------------------------------------------------------------- finding holes
@@ -209,18 +237,20 @@ def main():
     ap.add_argument("--reclick", action="store_true",
                     help="redo the corner clicks rather than reusing them")
     ap.add_argument("--colour-names", type=str, default=",".join(DEFAULT_COLOURS))
+    ap.add_argument("--tools", action="store_true")
     ap.add_argument("--exposure", action="store_true")
     ap.add_argument("--geometry", action="store_true")
     ap.add_argument("--colours", action="store_true")
     args = ap.parse_args()
     camera.resolve(args)
 
-    chosen = [n for n, on in (("exposure", args.exposure),
+    chosen = [n for n, on in (("tools", args.tools),
+                              ("exposure", args.exposure),
                               ("geometry", args.geometry),
                               ("colours", args.colours)) if on]
-    steps = chosen or ["exposure", "geometry", "colours"]
-    run = {"exposure": step_exposure, "geometry": step_geometry,
-           "colours": step_colours}
+    steps = chosen or ["tools", "exposure", "geometry", "colours"]
+    run = {"tools": step_tools, "exposure": step_exposure,
+           "geometry": step_geometry, "colours": step_colours}
 
     for name in steps:
         if not run[name](args):

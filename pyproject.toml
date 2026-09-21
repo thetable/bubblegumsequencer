@@ -1,0 +1,21 @@
+[project]
+name = "bubblegum"
+version = "0.1.0"
+description = "A 4 x 16 grid of holes, coloured gumballs, and a camera underneath"
+requires-python = ">=3.12"
+
+# Pinned rather than floored. This is an instrument, not a library: nothing
+# else depends on it, so there is no compatibility to preserve, and the one
+# thing worth having is that the version which worked on the bench is the
+# version that comes up on a different Mac an hour before a talk.
+dependencies = [
+    "numpy==2.5.3",
+    "opencv-python==5.0.0.93",
+    "pillow==12.3.0",
+]
+
+[tool.uv]
+# An application, not something to be installed into its own environment.
+# Without this, uv tries to build the repo as a package and wants a build
+# backend it has no use for.
+package = false

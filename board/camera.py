@@ -10,10 +10,12 @@ and silently ignores it, which cost an evening to discover, so everything here
 goes through uvc-util instead.
 """
 
+import glob
 import json
 import os
 import shutil
 import subprocess
+import tempfile
 
 import cv2
 import numpy as np
@@ -28,6 +30,73 @@ EXPOSURE_CANDIDATES = [4, 6, 9, 13, 19, 27, 38, 55, 78, 110, 157, 220]
 
 UVC_MANUAL, UVC_AUTO = 1, 8
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UVC_SOURCE = "https://github.com/jtfrey/uvc-util"
+
+
+def uvc_path():
+    """Where uvc-util is, or None.
+
+    One answer for the whole program. It used to be worked out separately
+    wherever it was needed, the two answers drifted apart in a refactor, and
+    the one that was wrong failed by returning None rather than by
+    complaining: the exposure quietly went back to automatic, which is the
+    single thing this module exists to prevent.
+    """
+    found = shutil.which("uvc-util")
+    if found:
+        return found
+    beside = os.path.join(ROOT, "uvc-util")
+    return beside if os.path.exists(beside) else None
+
+
+def _last_line(text):
+    lines = [l for l in (text or "").strip().splitlines() if l.strip()]
+    return lines[-1] if lines else "no output"
+
+
+def build_uvc_util():
+    """Clone and compile uvc-util into the repo root. Returns the path or None.
+
+    Not vendored: it is somebody else's code and a Mac-only binary. Building
+    it is two commands, which is two commands too many to leave in a README
+    for a person to copy at the one moment they are least in the mood.
+    """
+    missing = [t for t in ("git", "clang") if shutil.which(t) is None]
+    if missing:
+        print(f"  {' and '.join(missing)} not installed.")
+        print("  Install the command line tools:  xcode-select --install")
+        return None
+
+    target = os.path.join(ROOT, "uvc-util")
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "uvc-util")
+        print(f"  cloning {UVC_SOURCE}")
+        done = subprocess.run(["git", "clone", "--depth", "1", UVC_SOURCE, src],
+                              capture_output=True, text=True)
+        if done.returncode:
+            print(f"  clone failed: {_last_line(done.stderr)}")
+            return None
+
+        sources = sorted(glob.glob(os.path.join(src, "src", "*.m")))
+        if not sources:
+            print("  the clone has no src/*.m: upstream has moved things about.")
+            print(f"  Have a look at {UVC_SOURCE} and build it by hand.")
+            return None
+
+        print(f"  compiling {len(sources)} files")
+        done = subprocess.run(
+            ["clang", "-fno-objc-arc", "-O2", "-Wno-everything",
+             "-framework", "Foundation", "-framework", "IOKit",
+             "-framework", "CoreFoundation", *sources, "-o", target],
+            capture_output=True, text=True)
+        if done.returncode:
+            print(f"  compile failed: {_last_line(done.stderr)}")
+            return None
+
+    print(f"  built {target}")
+    return target
+
 
 def uvc_util(index, *args):
     """Talk to the camera's UVC controls through uvc-util.
@@ -36,16 +105,10 @@ def uvc_util(index, *args):
     accepted and silently ignored. uvc-util walks the USB bus with IOKit and
     sets the control on the device itself, which the capture then inherits.
 
-    The binary sits next to this file and is not in the repo. To rebuild it:
-
-        git clone --depth 1 https://github.com/jtfrey/uvc-util
-        clang -fno-objc-arc -O2 -Wno-everything -framework Foundation \
-              -framework IOKit -framework CoreFoundation \
-              uvc-util/src/*.m -o uvc-util
+    The binary is not in the repo; setup.py offers to build it.
     """
-    exe = shutil.which("uvc-util") or os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "uvc-util")
-    if not os.path.exists(exe):
+    exe = uvc_path()
+    if exe is None:
         return None
     try:
         done = subprocess.run([exe, "-I", str(index), *args],
@@ -105,9 +168,8 @@ def uvc_devices():
     own, and everything downstream then reports cheerfully on a picture of
     your face.
     """
-    exe = shutil.which("uvc-util") or os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), os.pardir, "uvc-util")
-    if not os.path.exists(exe):
+    exe = uvc_path()
+    if exe is None:
         return None                      # cannot tell, which is not the same
     try:
         done = subprocess.run([exe, "-d"], capture_output=True, text=True,

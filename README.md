@@ -13,15 +13,19 @@ from the balls themselves.
 
 - A UVC webcam, roughly 200 mm below the sheet, looking up
 - LED strips inside the enclosure, lighting the sheet from below
-- Python with `opencv-python`, `numpy` and `pillow`
-- macOS only, for the exposure control: [uvc-util](https://github.com/jtfrey/uvc-util)
+- macOS, for the exposure control, which goes through
+  [uvc-util](https://github.com/jtfrey/uvc-util). `setup.py` builds it for you.
+- [uv](https://docs.astral.sh/uv/), which brings its own Python
 
 ```sh
-git clone --depth 1 https://github.com/jtfrey/uvc-util
-clang -fno-objc-arc -O2 -Wno-everything -framework Foundation \
-      -framework IOKit -framework CoreFoundation \
-      uvc-util/src/*.m -o uvc-util
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+That is the whole install. `uv run` builds the environment from `uv.lock` the
+first time it is asked for one, about half a minute, and finds it already
+there every time after. The versions are pinned rather than floored, so a
+second Mac gets the ones this was built against and not whatever shipped
+since.
 
 ## Setting it up
 
@@ -30,7 +34,7 @@ Once per rig, in this order.
 **1. Focus the lens**, if it has never been set or has moved.
 
 ```sh
-python focus_check.py
+uv run focus_check.py
 ```
 
 **2. Print and stick on the tags.** Four AprilTags, 25 mm, two above the grid
@@ -38,35 +42,41 @@ and two below, on the underside of the sheet facing the camera. Print at 100%
 and check the ruler on the sheet before cutting.
 
 ```sh
-python make_tags.py          # writes tags.pdf
+uv run make_tags.py          # writes tags.pdf
 ```
 
-**3. Everything else**, as one guided walk: exposure, then geometry, then
-colours. It tells you what to do at each step.
+**3. Everything else**, as one guided walk: tools, then exposure, then
+geometry, then colours. It tells you what to do at each step.
 
 ```sh
-python setup.py
+uv run setup.py
 ```
 
-The order is not arbitrary. Exposure first, because geometry and colour are
-both read off a correctly exposed frame; left on auto the camera meters a
-mostly-black board, opens right up, and the room coming through the empty
-holes ends up as bright as the balls while the balls themselves blow out.
-Geometry second, because teaching a colour means sampling cells, which means
-knowing where they are.
+The order is not arbitrary. Tools first, because the only thing in that step
+is uvc-util and everything after it is measured off a frame whose exposure
+uvc-util sets; if it is missing, setup offers to clone and compile it.
+Exposure second, because geometry and colour are both read off a correctly
+exposed frame; left on auto the camera meters a mostly-black board, opens
+right up, and the room coming through the empty holes ends up as bright as
+the balls while the balls themselves blow out. Geometry third, because
+teaching a colour means sampling cells, which means knowing where they are.
 
 Individual steps, when only one thing has changed:
 
 ```sh
-python setup.py --exposure
-python setup.py --geometry     # --reclick to redo the corner clicks
-python setup.py --colours
+uv run setup.py --tools
+uv run setup.py --exposure
+uv run setup.py --geometry     # --reclick to redo the corner clicks
+uv run setup.py --colours
 ```
 
 ## Playing it
 
+Double-click **Bubblegum.command** in Finder, which builds the environment if
+it has to, starts the server and opens the browser. Or, from a terminal:
+
 ```sh
-python play.py
+uv run play.py
 ```
 
 Then open http://127.0.0.1:8099 and press space. Ctrl-c in the terminal
@@ -90,14 +100,14 @@ Each step is there because of something visibly wrong in the one before it,
 which is what makes it worth showing in that order.
 
 ```sh
-python probe.py --sheet pipeline.png    # all the stages as one image
+uv run probe.py --sheet pipeline.png    # all the stages as one image
 ```
 
 ## Looking at what it sees
 
 ```sh
-python probe.py              # the grid, live, with each ball labelled
-python probe.py --once       # one frame, to cells.csv and two plots
+uv run probe.py              # the grid, live, with each ball labelled
+uv run probe.py --once       # one frame, to cells.csv and two plots
 ```
 
 Keys: `space` freeze, `s` save the frame, `c` cycle what the cells are filled
@@ -115,6 +125,7 @@ Three commands, on one library.
 | `probe.py` | a window on what the camera sees, for when something is wrong |
 | `make_tags.py` | the printable tag sheet |
 | `focus_check.py` | setting the lens |
+| `Bubblegum.command` | the same as `play.py`, for people who use Finder |
 
 | | |
 |---|---|
@@ -137,3 +148,25 @@ camera and index 0 silently becomes the laptop's own, which opens perfectly
 happily and shows you your face. `--index` and `--uvc-index` still override
 it. The two are different numberings, so they can disagree: OpenCV counts the
 cameras AVFoundation offers, uvc-util counts the ones on the USB bus.
+
+## Moving it to another Mac
+
+There is no download-and-play version of this, because half the instrument is
+a physical board. What there is: a clone, an `install uv` line, and the same
+guided walk you ran the first time.
+
+```sh
+git clone https://github.com/thetable/bubblegumsequencer
+cd bubblegumsequencer
+uv run setup.py            # builds uvc-util, then walks the rig
+```
+
+Roughly ten minutes, nearly all of it spent placing the board and teaching the
+colours rather than waiting on software. The environment is 24 seconds and the
+uvc-util build is a few more.
+
+Two things do not travel and are not meant to. Calibration describes your
+board under your lights, so it is measured again rather than copied. Camera
+permission is granted per app by macOS, so the first run prompts once; a
+double-clicked `Bubblegum.command` runs inside Terminal and inherits whatever
+Terminal was already given.

@@ -21,6 +21,7 @@ import os
 import sys
 import threading
 import time
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import cv2
@@ -270,6 +271,8 @@ def main():
     ap.add_argument("--uvc-index", type=int, default=None,
                     help="uvc-util camera index; camera.json otherwise")
     ap.add_argument("--port", type=int, default=8099)
+    ap.add_argument("--open", action="store_true",
+                    help="open the browser as well, for Bubblegum.command")
     ap.add_argument("--no-flip", action="store_true",
                     help="send the camera's column order instead of the "
                          "player's, which are mirror images of each other")
@@ -303,6 +306,11 @@ def main():
     url = f"http://127.0.0.1:{args.port}"
     print(f"\n  playing at  {link(url)}")
     print("  ctrl-c to stop\n")
+    # Safe before serve_forever: the socket is already bound and listening by
+    # the time ThreadingHTTPServer has been constructed, so the request waits
+    # in the backlog rather than being refused.
+    if args.open:
+        webbrowser.open(url)
     try:
         http.serve_forever()
     except KeyboardInterrupt:
