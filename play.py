@@ -204,6 +204,8 @@ def handler_for(board, args, stop):
                 return self.stream()
             if self.path.startswith("/stages.json"):
                 return self.pipeline()
+            if self.path.startswith("/cells.json"):
+                return self.readings()
             name = "index.html" if self.path in ("/", "") else self.path.lstrip("/")
             whole = os.path.join(APP, os.path.basename(name))
             if not os.path.exists(whole):
@@ -213,6 +215,39 @@ def handler_for(board, args, stop):
             self.send_response(200)
             self.send_header("Content-Type",
                              TYPES.get(os.path.splitext(whole)[1], "text/plain"))
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def readings(self):
+            """What every cell measured on the last frame, as numbers.
+
+            For diagnosing from outside the process. A screenshot shows which
+            cells are wrong; this shows by how much, which is the difference
+            between guessing at a threshold and choosing one. Polling it in a
+            loop also catches cells that flicker, which no single frame can.
+            """
+            with board.lock:
+                frame = None if board.frame is None else board.frame.copy()
+                note = board.note
+            if frame is None:
+                self.send_error(503, "no frame yet")
+                return
+            cells, _, _, drift = read_board(frame)
+            body = json.dumps({
+                "note": note,
+                "drift": drift,
+                "at": time.time(),
+                "cells": None if cells is None else [
+                    {"i": i, "row": i // geometry.COLS, "col": i % geometry.COLS,
+                     **{k: round(c[k], 3) for k in
+                        ("L", "a", "b", "dome", "texture", "distance") if k in c},
+                     "colour": c.get("colour", "empty")}
+                    for i, c in enumerate(cells)],
+            }).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-cache")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

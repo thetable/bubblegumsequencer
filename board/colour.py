@@ -22,9 +22,7 @@ PROTOTYPE_FILE = "prototypes.json"
 # Floors on the spread, per Lab channel. Four balls in one frame understate
 # how much a colour really varies across the board, and a spread measured as
 # near zero would make the classifier absurdly sure of itself. L is floored
-# much higher than a and b for the reason above. Measured on a full board,
-# 4.5 spreads sits between the worst real ball at 3.9 and the nearest empty
-# hole at 5.7.
+# much higher than a and b for the reason above.
 SPREAD_FLOOR = (12.0, 4.0, 4.0)
 
 # Teaching throws out strays by hue alone, never brightness. An empty hole
@@ -35,7 +33,13 @@ SPREAD_FLOOR = (12.0, 4.0, 4.0)
 # others read 47.
 TRIM_FLOOR = 7.0        # Lab units of hue that still count as the same colour
 TRIM_DISTANCE = 3.0     # how many of those a colour may span
-MAX_DISTANCE = 4.5      # spreads away from a prototype before we disown it
+# Blue is the least saturated thing we teach: its chroma is 10 where green's
+# is 34 and yellow's 64. That makes it the nearest prototype to plain neutral
+# grey, so every dim empty hole is faintly "blue" and 4.5 spreads let a row
+# of them through. Measured over eight frames in two lightings, real balls
+# reach 2.8 and the nearest empty sits at 3.1; anything from 2.8 to 3.4 is
+# clean, so this is the middle of that.
+MAX_DISTANCE = 3.1      # spreads away from a prototype before we disown it
 MARGIN = 1.4            # how much closer the winner must be than the runner-up
 
 # Shape, for when colour has stopped being enough. In afternoon sun the room
@@ -53,7 +57,7 @@ MARGIN = 1.4            # how much closer the winner must be than the runner-up
 # obvious match is not made to prove itself again, which matters for the dim
 # outer columns, where real balls dome as little as 0.025.
 CONFIDENT = 2.5         # spreads within which colour alone settles it
-DOME_MIN = 0.05         # middle brighter than rim, as a fraction of the median
+DOME_MIN = 0.06         # middle brighter than rim, as a fraction of the median
 
 
 def otsu_split(values):
