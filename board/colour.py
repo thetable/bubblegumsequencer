@@ -97,6 +97,9 @@ def split_board(cells):
     position costs brightness: the corner ball is dim, not differently
     coloured, and judging it on brightness threw it away.
     """
+    cells = sampled(cells)
+    if not cells:
+        return [], [], []
     L = np.array([c["L"] for c in cells])
     cut, _ = otsu_split(L)
     bright = [c for c in cells if c["L"] > cut]
@@ -163,6 +166,17 @@ def teach(cells, name):
     return protos
 
 
+def sampled(cells):
+    """Only the cells this frame could actually measure.
+
+    A cell whose hole has left the camera's view gets no sample at all, so it
+    has no L to compare, plot or average. That is not the same as an empty
+    hole, and the difference matters: empty is a reading, off-frame is the
+    absence of one.
+    """
+    return [c for c in cells if "L" in c]
+
+
 def classify(cells, protos):
     """Nearest taught colour, in spreads rather than raw Lab units.
 
@@ -179,6 +193,13 @@ def classify(cells, protos):
     if not names:
         return
     for c in cells:
+        if "L" not in c:
+            # Nothing was read here, because the hole is off the edge of the
+            # frame. None rather than "empty": it tells the stabiliser to hold
+            # whatever this cell already was instead of wiping it, which is
+            # what you want when someone slides the board half out of shot.
+            c["colour"] = None
+            continue
         scored = sorted(
             (np.sqrt(sum(((c[k] - protos[n][k]) / s) ** 2
                          for k, s in zip("Lab", protos[n]["spread"]))), n)

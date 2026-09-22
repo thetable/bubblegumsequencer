@@ -41,11 +41,13 @@ def write_csv(cells, path="cells.csv"):
         for c in cells:
             w.writerow([c["idx"], c["row"], c["col"],
                         round(c["x"], 1), round(c["y"], 1), c["rx"], c["ry"],
-                        c["found"], c.get("colour", ""),
+                        c["found"], c.get("colour") or "",
                         round(c.get("distance", 0.0), 2),
-                        round(c["L"], 2), round(c["a"], 2), round(c["b"], 2),
-                        round(c["texture"], 1), round(c["clipped"], 3),
-                        round(c["mean_gray"], 1)])
+                        # Blank where the cell is off the edge of the frame
+                        # and was never measured, rather than a made-up zero.
+                        *[("" if k not in c else round(c[k], r)) for k, r in
+                          (("L", 2), ("a", 2), ("b", 2), ("texture", 1),
+                           ("clipped", 3), ("mean_gray", 1))]])
 
 
 def draw_map(frame, cells, path):
@@ -102,9 +104,11 @@ def report(frame, cells):
     """The numbers worth looking at when something is not separating."""
     write_csv(cells)
     draw_map(frame, cells, "cells_map.png")
-    draw_plots(cells, "cells_plot.png")
+    # The plots can only show cells that were measured; the CSV keeps all 64
+    # so that the missing ones are still visible as missing.
+    draw_plots(colour.sampled(cells), "cells_plot.png")
 
-    blown = [c["idx"] for c in cells if c["clipped"] > 0.02]
+    blown = [c["idx"] for c in colour.sampled(cells) if c["clipped"] > 0.02]
     if blown:
         print(f"\n{len(blown)} cells have over 2% of their pixels clipped at 255: "
               f"{blown[:12]}{' ...' if len(blown) > 12 else ''}")
@@ -112,7 +116,9 @@ def report(frame, cells):
         print("  Run setup.py to re-dial the exposure.")
 
     for key, name in (("L", "brightness L*"), ("texture", "texture")):
-        vals = [c[key] for c in cells]
+        vals = [c[key] for c in colour.sampled(cells)]
+        if not vals:
+            continue
         thresh, gap = colour.otsu_split(np.array(vals))
         low = sum(1 for v in vals if v <= thresh)
         print(f"\n{name}: range {min(vals):.1f} to {max(vals):.1f}")

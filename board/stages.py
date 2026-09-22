@@ -133,7 +133,7 @@ def render(frame):
     if prototypes:
         colour.classify(cells, prototypes)
         for c in cells:
-            if c.get("colour", "empty") == "empty":
+            if c.get("colour") in (None, "empty"):
                 cv2.ellipse(named, (int(c["x"]), int(c["y"])),
                             (c["rx"], c["ry"]), 0, 0, 360, (60, 60, 60), 2)
                 continue
@@ -141,7 +141,7 @@ def render(frame):
                         0, 0, 360, c["bgr"], -1)
             cv2.ellipse(named, (int(c["x"]), int(c["y"])), (c["rx"], c["ry"]),
                         0, 0, 360, (255, 255, 255), 2)
-    held = sum(1 for c in cells if c.get("colour", "empty") != "empty")
+    held = sum(1 for c in cells if c.get("colour") not in (None, "empty"))
     stage("Name the colours",
           f"{held} balls. Nearest taught colour, measured in that colour's own "
           "spread rather than raw units. Empty is deliberately not a class to "

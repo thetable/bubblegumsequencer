@@ -80,5 +80,27 @@ print('\ngeometry failure routes to no data')
 check('unplaced gives all None', readings_from([{'colour':'pink'}]*64, False), [None]*64)
 check('placed passes through', readings_from([{'colour':'pink'}]*64, True)[:2], ['pink','pink'])
 
+print('\na cell out of shot holds, it does not empty')
+from board import colour
+s=Stabiliser(); t=0.0
+held=[EMPTY]*64
+for i in (10, 11): held[i]='blue'
+c,t = frames(s, held, 10, t)
+check('two settle', sorted(i for i,_,_ in c), [10,11])
+# The board slides half out of view: cell 11 is no longer measurable at all.
+out=list(held); out[11]=None
+c,t = frames(s, out, 60, t)            # two seconds of not seeing it
+check('nothing changed', c, [])
+check('it kept its colour', s.pattern[11], 'blue')
+check('and is not pending', s.pending(), {})
+
+print('\nclassify survives a cell it could not measure')
+protos={'blue':{'L':55.0,'a':0.0,'b':-14.0,'spread':[12.0,4.0,4.0]}}
+cells=[{'L':55.0,'a':0.0,'b':-14.0,'dome':0.3}, {}]   # second one never sampled
+colour.classify(cells, protos)
+check('measured cell classified', cells[0]['colour'], 'blue')
+check('unmeasured cell is None', cells[1]['colour'], None)
+check('None is not a reading', readings_from(cells, True), ['blue', None])
+
 print('\nALL PASS' if ok else '\nFAILURES ABOVE')
 sys.exit(0 if ok else 1)
