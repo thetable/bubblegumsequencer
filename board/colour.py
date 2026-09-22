@@ -38,6 +38,23 @@ TRIM_DISTANCE = 3.0     # how many of those a colour may span
 MAX_DISTANCE = 4.5      # spreads away from a prototype before we disown it
 MARGIN = 1.4            # how much closer the winner must be than the runner-up
 
+# Shape, for when colour has stopped being enough. In afternoon sun the room
+# comes down through the empty holes hard enough that an empty reads L 48
+# against a green ball's L 49, on the same hue: 18 empties called green, and
+# by eye the only thing telling them apart was the shading on the balls.
+#
+# A gumball is a sphere lit from below, so its middle faces the camera and is
+# brighter than its rim. An empty hole is a flat, defocused view of the
+# ceiling and has no such doming. Measured as a fraction of the cell's own
+# brightness, which is what makes it survive a change of light: it is a shape
+# in the cell, not a level.
+#
+# Only consulted where colour is already unsure. A ball whose colour is an
+# obvious match is not made to prove itself again, which matters for the dim
+# outer columns, where real balls dome as little as 0.025.
+CONFIDENT = 2.5         # spreads within which colour alone settles it
+DOME_MIN = 0.05         # middle brighter than rim, as a fraction of the median
+
 
 def otsu_split(values):
     """Data-driven threshold, so there is no number to hand-tune."""
@@ -164,8 +181,10 @@ def classify(cells, protos):
             for n in names)
         best = scored[0]
         second = scored[1][0] if len(scored) > 1 else 1e9
-        c["colour"] = (best[1] if best[0] <= MAX_DISTANCE
-                       and second >= MARGIN * best[0] else "empty")
+        near = best[0] <= MAX_DISTANCE and second >= MARGIN * best[0]
+        # Shape only has to settle the cases colour could not.
+        shaped = best[0] <= CONFIDENT or c.get("dome", 1.0) >= DOME_MIN
+        c["colour"] = best[1] if near and shaped else "empty"
         c["distance"] = float(best[0])
 
 
@@ -194,7 +213,8 @@ def sample_cell(frame, gray, cx, cy, rx, ry):
         return None
 
     yy, xx = np.ogrid[y0:y1, x0:x1]
-    disc = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2 <= 1.0
+    radius = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2
+    disc = radius <= 1.0
     if disc.sum() < 20:
         return None
 
@@ -220,8 +240,18 @@ def sample_cell(frame, gray, cx, cy, rx, ry):
     # the brightest 5% hides the very pixels this is looking for.
     clipped = float((patch[disc].max(axis=1) >= 250).mean())
 
+    # How much brighter the middle of the cell is than its rim, relative to
+    # the cell itself. A ball is a lit sphere and domes; an empty hole is flat.
+    middle, rim = radius <= 0.36, (radius > 0.49) & disc
+    level = float(np.median(gpatch[disc]))
+    dome = 0.0
+    if middle.sum() >= 8 and rim.sum() >= 8 and level >= 1.0:
+        dome = (float(np.median(gpatch[middle]))
+                - float(np.median(gpatch[rim]))) / level
+
     return {
         "L": L, "a": a, "b": b,
+        "dome": dome,
         "texture": texture,
         "clipped": clipped,
         "mean_gray": float(gpatch[mask].mean()),

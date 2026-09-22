@@ -146,7 +146,11 @@ def render(frame):
           f"{held} balls. Nearest taught colour, measured in that colour's own "
           "spread rather than raw units. Empty is deliberately not a class to "
           "recognise: it is whatever no taught colour explains, because empty "
-          "is the ceiling and nobody controls the ceiling.",
+          "is the ceiling and nobody controls the ceiling. Where that is not "
+          "enough, and in afternoon sun it is not, the cell has to be domed "
+          "as well: a ball is a sphere lit from below and is brighter in the "
+          "middle than at the rim. That is the same thing your eye uses when "
+          "the colours stop being separable.",
           named)
     return out
 
