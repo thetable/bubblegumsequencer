@@ -329,6 +329,7 @@ const stepsEl = document.getElementById("steps");
 const shotEl = document.getElementById("shot");
 const titleEl = document.getElementById("stageTitle");
 const captionEl = document.getElementById("stageCaption");
+const detailEl = document.getElementById("stageDetail");
 const playable = [...document.querySelectorAll(".transport, .board, .voices")];
 
 let showingPipeline = false;
@@ -355,6 +356,7 @@ async function pump() {
       showStage(Math.min(atStage, stages.length - 1));
     } catch {
       captionEl.textContent = "waiting for a frame from the camera";
+      detailEl.textContent = "";
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
@@ -377,6 +379,7 @@ function showStage(i) {
   shotEl.src = "data:image/jpeg;base64," + s.jpeg;
   titleEl.textContent = s.title;
   captionEl.textContent = s.caption;
+  detailEl.textContent = s.detail || "";
   [...stepsEl.children].forEach((b, n) => b.classList.toggle("on", n === atStage));
 }
 

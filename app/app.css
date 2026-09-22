@@ -151,6 +151,10 @@ button.ghost { margin-left: auto; font-size: 13px; padding: 6px 12px; }
                 background: #000; }
 .pipeline figcaption h2 { margin: 0 0 8px; font-size: 17px; }
 .pipeline figcaption p { margin: 0; color: var(--quiet); font-size: 14px; }
+/* The caption is what the step is for, and carries the talk. The detail is
+   how it works, for whoever is still reading after you have moved on. */
+.pipeline figcaption .detail { margin-top: 10px; font-size: 13px;
+                               color: #6f6f7a; line-height: 1.55; }
 .hint { font-size: 12px; color: #5d5d66; margin: 0; }
 
 @media (max-width: 760px) {
