@@ -276,15 +276,52 @@ function trim(buffer) {
   return out;
 }
 
+// Bring every sample to the same peak, so a quiet recording is not simply
+// lost under the synthesised voices.
+//
+// Peak rather than loudness. Matching perceived loudness would suit sustained
+// sounds better, but these are drum hits: one big transient over a quiet body,
+// and an RMS match would push that transient straight through the ceiling.
+// Peak is the predictable choice and cannot clip.
+//
+// Capped, because gain is not free: a recording with nothing in it has a noise
+// floor, and boosting silence thirty fold just gives you loud silence.
+const LEVEL_TARGET = 0.89;   // leaves about a decibel of headroom
+const LEVEL_MAX = 20;        // 26 dB, past which it is only noise being lifted
+
+function level(buffer) {
+  let peak = 0;
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const d = buffer.getChannelData(c);
+    for (let i = 0; i < d.length; i++) {
+      const v = Math.abs(d[i]);
+      if (v > peak) peak = v;
+    }
+  }
+  if (peak < TRIM_SILENT) return 1;
+  const gain = Math.min(LEVEL_TARGET / peak, LEVEL_MAX);
+  if (Math.abs(gain - 1) < 0.01) return 1;
+  // In place: this buffer was decoded a moment ago and nothing else holds it.
+  // The bytes it came from are untouched in IndexedDB either way.
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const d = buffer.getChannelData(c);
+    for (let i = 0; i < d.length; i++) d[i] *= gain;
+  }
+  return gain;
+}
+
 async function decode(name, bytes, source) {
   try {
     const whole = await audio.decodeAudioData(bytes.slice(0));
     const cut = trim(whole);
+    const gain = level(cut);
     voices[name].buffer = cut;
-    // Says what it kept, because a trim that fires when it should not is
-    // otherwise invisible until the thing sounds wrong.
+    // Says what it did, because a trim or a boost that fires when it should
+    // not is otherwise invisible until the thing sounds wrong.
+    const dB = 20 * Math.log10(gain);
     voices[name].source = `${source}, ${cut.duration.toFixed(2)} s`
-      + (cut === whole ? "" : ` of ${whole.duration.toFixed(2)}`);
+      + (cut === whole ? "" : ` of ${whole.duration.toFixed(2)}`)
+      + (gain === 1 ? "" : `, ${dB > 0 ? "+" : ""}${dB.toFixed(0)} dB`);
     describe(name);
   } catch { describe(name, "could not read that file"); }
 }
