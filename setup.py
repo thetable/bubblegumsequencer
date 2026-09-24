@@ -112,15 +112,27 @@ def step_centre(args):
         cells, tags, note, _ = read_board(frame)
         m = framing.margins(frame.shape, cells, tags,
                             geometry.COLS, geometry.ROWS) if cells else None
-        # Shown the way the camera sees it, not mirrored like everything else:
-        # you are looking at the camera while you move it, and a mirrored
-        # picture would have you pushing it the wrong way.
-        view = frame.copy()
+        # Mirrored, like every other window here. It was not, on the theory
+        # that you are moving the camera rather than the board so the camera's
+        # own view is the honest one. In practice you stand over the board,
+        # every other view matches that, and the odd one out is the one that
+        # sends you the wrong way. Being consistent beats being literal.
+        view = cv2.flip(frame, 1)
         h, w = view.shape[:2]
+        mirror = lambda x: w - 1 - int(x)
         cv2.drawMarker(view, (w // 2, h // 2), (160, 160, 160),
                        cv2.MARKER_CROSS, 60, 2)
+        # The tags, always: when placement fails it is nearly always because
+        # something is lying across one, and seeing which is half the answer.
+        for tag_id, corner in sorted((tags or {}).items()):
+            shown = np.int32([[mirror(x), y] for x, y in corner])
+            cv2.polylines(view, [shown], True, (255, 0, 255), 2)
+            cv2.putText(view, str(tag_id), tuple(shown[0] + [6, -8]),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2,
+                        cv2.LINE_AA)
         if m:
             x0, y0, x1, y1 = (int(v) for v in m["box"])
+            x0, x1 = mirror(x1), mirror(x0)
             cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
             good, worst, says = framing.verdict(m)
             tint = (90, 230, 90) if good else (60, 200, 255)
@@ -129,17 +141,21 @@ def step_centre(args):
             cv2.arrowedLine(view, (cx, cy), (w // 2, h // 2), tint, 2,
                             tipLength=0.15)
             lines = [says,
-                     f"off centre {m['off_x']:+.0f} px across, "
-                     f"{m['off_y']:+.0f} px down",
-                     f"move the camera about {abs(m['shift_x']):.0f} mm across"
-                     f" and {abs(m['shift_y']):.0f} mm the other way",
-                     f"room to slide:  left {m['left']:.0f}  right {m['right']:.0f}"
+                     "arrow = where the board has to go."
+                     "  Camera moves the opposite way.",
+                     f"out by {abs(m['shift_x']):.0f} mm across and "
+                     f"{abs(m['shift_y']):.0f} mm the other way",
+                     f"room to slide:  left {m['right']:.0f}  right {m['left']:.0f}"
                      f"  up {m['up']:.0f}  down {m['down']:.0f}  mm"]
             if best is None or worst > best:
                 best = worst
         else:
             tint = (60, 60, 255)
-            lines = ["cannot see the board", note or ""]
+            seen = sorted(tags or {})
+            lines = ["cannot place the board", note or "",
+                     f"tags found: {seen if seen else 'none'}."
+                     "  Three are needed.",
+                     "Check nothing is lying across the missing ones."]
         for i, text in enumerate(lines):
             at = (14, 34 + 30 * i)
             cv2.putText(view, text, at, cv2.FONT_HERSHEY_SIMPLEX, 0.7,
