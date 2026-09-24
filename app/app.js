@@ -220,10 +220,71 @@ function loadSample(name) {
   const ask = db.transaction("samples").objectStore("samples").get(name);
   ask.onsuccess = () => { if (ask.result) decode(name, ask.result, "saved"); };
 }
+// Trim the silence a sample starts and ends with.
+//
+// You spend the first half second of a recording reaching back to the
+// keyboard, so the sound begins somewhere in the middle of the buffer. Played
+// untrimmed, that silence is a delay applied to every single hit, and on
+// sixteenth notes at 120 bpm a step is only 125 ms, so a quarter second of
+// dead air is two steps late. The tail matters for the opposite reason: a
+// two second recording left whole overlaps the next fifteen steps.
+//
+// Measured against the sample's own peak rather than an absolute level, so it
+// behaves the same whether you recorded loudly or quietly.
+const TRIM_FLOOR = 0.02;    // counts as sound, as a fraction of the peak
+const TRIM_SILENT = 0.002;  // below this peak the whole thing is silence
+const TRIM_LEAD = 0.005;    // seconds kept before the transient
+const TRIM_TAIL = 0.050;    // seconds kept after the last sound
+const TRIM_FADE = 0.0015;   // a hair of fade, so a cut mid-wave cannot click
+
+function trim(buffer) {
+  const channels = [];
+  let peak = 0;
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c);
+    channels.push(data);
+    for (let i = 0; i < data.length; i++) {
+      const v = Math.abs(data[i]);
+      if (v > peak) peak = v;
+    }
+  }
+  // Nothing but noise: leave it alone rather than trim it to nothing, so a
+  // failed recording still sounds like a failed recording instead of silence.
+  if (peak < TRIM_SILENT) return buffer;
+
+  const floor = peak * TRIM_FLOOR;
+  const loud = (i) => channels.some((d) => Math.abs(d[i]) >= floor);
+  let first = 0, last = buffer.length - 1;
+  while (first < last && !loud(first)) first++;
+  while (last > first && !loud(last)) last--;
+
+  const rate = buffer.sampleRate;
+  const start = Math.max(0, first - Math.round(TRIM_LEAD * rate));
+  const end = Math.min(buffer.length, last + 1 + Math.round(TRIM_TAIL * rate));
+  if (start === 0 && end === buffer.length) return buffer;
+
+  const out = audio.createBuffer(buffer.numberOfChannels, end - start, rate);
+  const fade = Math.min(Math.round(TRIM_FADE * rate), (end - start) >> 1);
+  for (let c = 0; c < channels.length; c++) {
+    const to = out.getChannelData(c);
+    to.set(channels[c].subarray(start, end));
+    for (let i = 0; i < fade; i++) {
+      to[i] *= i / fade;
+      to[to.length - 1 - i] *= i / fade;
+    }
+  }
+  return out;
+}
+
 async function decode(name, bytes, source) {
   try {
-    voices[name].buffer = await audio.decodeAudioData(bytes.slice(0));
-    voices[name].source = source;
+    const whole = await audio.decodeAudioData(bytes.slice(0));
+    const cut = trim(whole);
+    voices[name].buffer = cut;
+    // Says what it kept, because a trim that fires when it should not is
+    // otherwise invisible until the thing sounds wrong.
+    voices[name].source = `${source}, ${cut.duration.toFixed(2)} s`
+      + (cut === whole ? "" : ` of ${whole.duration.toFixed(2)}`);
     describe(name);
   } catch { describe(name, "could not read that file"); }
 }
