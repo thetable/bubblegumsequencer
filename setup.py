@@ -2,6 +2,7 @@
 """Getting the rig ready. Everything you do once, in the order it has to happen.
 
     python setup.py              # the whole walk
+    python setup.py --centre     # once, when the box is first put together
     python setup.py --tools      # just one step
     python setup.py --exposure
     python setup.py --geometry
@@ -23,7 +24,7 @@ import sys
 import cv2
 import numpy as np
 
-from board import camera, colour, geometry
+from board import camera, colour, framing, geometry
 from board.reader import read_board
 from board.view import draw
 
@@ -72,6 +73,98 @@ def click_corners(frame, preview_width=1280):
 
     cv2.destroyWindow(win)
     return picked
+
+
+# --------------------------------------------------------------------- framing
+
+
+def step_centre(args):
+    """Put the board in the middle of the frame. A build step, done once.
+
+    Not part of the walk, because it is done with a screwdriver rather than a
+    keyboard and only when the camera is first mounted. It is here rather than
+    in probe.py because getting it wrong is silent: the board still reads
+    perfectly, it simply has no room left on one side, and you find out when
+    someone nudges it mid-song.
+    """
+    print("\nCENTRING")
+    print("  Aim the camera at the middle of the sensor, NOT at the middle of")
+    print("  the board. This lens images its axis at pixel 841 of 1920, so a")
+    print("  camera centred under the board sits 119 px off-centre in frame.")
+    print("\n  Slide the camera until the two crosses meet. If the gap grows,")
+    print("  go the other way. Then tighten it down.")
+    print("  q when done, s to save a frame.\n")
+
+    cap = camera.open_camera(args)
+    if cap is None:
+        return False
+    pinned = camera.settings().get("exposure")
+    if pinned is not None:
+        camera.set_exposure(args.uvc_index, pinned)
+
+    win = "centring: slide the camera until the crosses meet"
+    cv2.namedWindow(win)
+    best = None
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        cells, tags, note, _ = read_board(frame)
+        m = framing.margins(frame.shape, cells, tags,
+                            geometry.COLS, geometry.ROWS) if cells else None
+        # Shown the way the camera sees it, not mirrored like everything else:
+        # you are looking at the camera while you move it, and a mirrored
+        # picture would have you pushing it the wrong way.
+        view = frame.copy()
+        h, w = view.shape[:2]
+        cv2.drawMarker(view, (w // 2, h // 2), (160, 160, 160),
+                       cv2.MARKER_CROSS, 60, 2)
+        if m:
+            x0, y0, x1, y1 = (int(v) for v in m["box"])
+            cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+            good, worst, says = framing.verdict(m)
+            tint = (90, 230, 90) if good else (60, 200, 255)
+            cv2.rectangle(view, (x0, y0), (x1, y1), tint, 2)
+            cv2.drawMarker(view, (cx, cy), tint, cv2.MARKER_TILTED_CROSS, 60, 3)
+            cv2.arrowedLine(view, (cx, cy), (w // 2, h // 2), tint, 2,
+                            tipLength=0.15)
+            lines = [says,
+                     f"off centre {m['off_x']:+.0f} px across, "
+                     f"{m['off_y']:+.0f} px down",
+                     f"move the camera about {abs(m['shift_x']):.0f} mm across"
+                     f" and {abs(m['shift_y']):.0f} mm the other way",
+                     f"room to slide:  left {m['left']:.0f}  right {m['right']:.0f}"
+                     f"  up {m['up']:.0f}  down {m['down']:.0f}  mm"]
+            if best is None or worst > best:
+                best = worst
+        else:
+            tint = (60, 60, 255)
+            lines = ["cannot see the board", note or ""]
+        for i, text in enumerate(lines):
+            at = (14, 34 + 30 * i)
+            cv2.putText(view, text, at, cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(view, text, at, cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        tint, 1, cv2.LINE_AA)
+        scale = min(1.0, args.display_width / w)
+        cv2.imshow(win, cv2.resize(view, None, fx=scale, fy=scale)
+                   if scale < 1.0 else view)
+        key = cv2.waitKey(20) & 0xFF
+        if key == ord("q"):
+            break
+        if key == ord("s"):
+            cv2.imwrite("centring.png", frame)
+            print("  wrote centring.png")
+
+    cap.release()
+    cv2.destroyWindow(win)
+    if best is None:
+        print("  Never saw the board, so nothing was measured.")
+        return False
+    print(f"  Best it got: {best:.0f} mm of room in the worst direction.")
+    if best < 8:
+        print("  Under 8 mm is tight. Worth another go before tightening down.")
+    return True
 
 
 # ---------------------------------------------------------------------- tools
@@ -170,6 +263,19 @@ def step_geometry(args):
           f"{max(residual):.1f} px worst.")
     geometry.save_reference(tags, cells)
     print(f"   Recorded against tags {sorted(tags)}. The board can move now.")
+
+    # Said here because it is the one problem that hides behind a good result.
+    # The board reads perfectly while sitting against the edge of the frame;
+    # you only find out it had no room when somebody nudges it mid-song.
+    m = framing.margins(frame.shape, cells, tags, geometry.COLS, geometry.ROWS)
+    if m:
+        good, worst, says = framing.verdict(m)
+        print(f"   Room to slide: left {m['left']:.0f}  right {m['right']:.0f}"
+              f"  up {m['up']:.0f}  down {m['down']:.0f} mm.")
+        if not good:
+            print(f"   {says.capitalize()}. The camera is aimed"
+                  f" {m['off_x']:+.0f},{m['off_y']:+.0f} px off the middle of")
+            print("   the frame. Worth fixing once, with:  python setup.py --centre")
     return True
 
 
@@ -237,12 +343,17 @@ def main():
     ap.add_argument("--reclick", action="store_true",
                     help="redo the corner clicks rather than reusing them")
     ap.add_argument("--colour-names", type=str, default=",".join(DEFAULT_COLOURS))
+    ap.add_argument("--centre", action="store_true",
+                    help="aim the camera; a build step, not part of the walk")
     ap.add_argument("--tools", action="store_true")
     ap.add_argument("--exposure", action="store_true")
     ap.add_argument("--geometry", action="store_true")
     ap.add_argument("--colours", action="store_true")
     args = ap.parse_args()
     camera.resolve(args)
+
+    if args.centre:
+        return 0 if step_centre(args) else 1
 
     chosen = [n for n, on in (("tools", args.tools),
                               ("exposure", args.exposure),

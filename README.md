@@ -37,6 +37,17 @@ Once per rig, in this order.
 uv run focus_check.py
 ```
 
+**1b. Aim the camera**, once, when the box is first put together.
+
+```sh
+uv run setup.py --centre
+```
+
+Aim it at the middle of the sensor, not at the middle of the board. The lens
+axis on this module images at pixel 841 of 1920, so a camera centred under the
+board sits 119 px off-centre in the frame: 8 px of clearance at one end and 234
+at the other. The window shows two crosses; slide the camera until they meet.
+
 **2. Print and stick on the tags.** Four AprilTags, 25 mm, two above the grid
 and two below, on the underside of the sheet facing the camera. Print at 100%
 and check the ruler on the sheet before cutting.
@@ -125,6 +136,7 @@ Three commands, on one library.
 | `probe.py` | a window on what the camera sees, for when something is wrong |
 | `make_tags.py` | the printable tag sheet |
 | `focus_check.py` | setting the lens |
+| `board/framing.py` | where the board sits in the frame, and the room around it |
 | `Bubblegum.command` | the same as `play.py`, for people who use Finder |
 
 | | |
