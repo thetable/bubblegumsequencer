@@ -134,15 +134,12 @@
   .strip i.green { background: var(--green); }
   button.tap {
     flex: none;
-    width: 26px; height: 26px; border-radius: 50%;
-    border: 1px solid var(--rule); background: var(--raised);
-    color: var(--muted);
-    display: grid; place-items: center;
-    cursor: pointer; padding: 0; margin-right: 10px;
-    font-size: 9px; line-height: 1;
+    border: none; background: none; padding: 0 0 0 10px;
+    color: var(--muted); opacity: 0.55;
+    cursor: pointer; font-size: 9px; line-height: 1;
   }
-  button.tap:hover { border-color: var(--accent); color: var(--accent); }
-  button.tap[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  button.tap:hover { color: var(--accent); opacity: 1; }
+  button.tap[aria-pressed="true"] { color: var(--accent); opacity: 1; }
 
   .strip span {
     font-family: var(--mono); font-size: 11px; color: var(--muted);
@@ -212,7 +209,35 @@
   .shot .how { font-size: 14px; color: var(--muted); max-width: 40ch; }
   .shot.wideshot { aspect-ratio: 16 / 9; }
   .photo { width: 100%; border-radius: 10px; display: block; background: var(--raised); }
-  .photo.lead { aspect-ratio: 7 / 5; object-fit: cover; }
+
+  /* The video is a poster that opens YouTube, not an embed. It loads in
+     nothing, it does not hand every visitor to Google before they ask, and
+     it works the same everywhere. */
+  a.video {
+    position: relative; display: block; border-radius: 10px; overflow: hidden;
+    background: var(--sheet); line-height: 0;
+  }
+  a.video img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
+                filter: saturate(1.05); }
+  a.video::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.38));
+  }
+  a.video .go {
+    position: absolute; z-index: 1; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: 74px; height: 74px; border-radius: 50%;
+    background: var(--accent); color: var(--on-accent);
+    display: grid; place-items: center; font-size: 24px; padding-left: 5px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+    transition: transform 0.15s ease;
+  }
+  a.video:hover .go { transform: translate(-50%, -50%) scale(1.09); }
+  a.video .tag {
+    position: absolute; z-index: 1; left: 16px; bottom: 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(255,255,255,0.82);
+  }
   figcaption { font-size: 14.5px; color: var(--muted); }
 
   /* Two by two, not auto-fit: four items on a three-wide track strands one
@@ -292,9 +317,9 @@
   </header>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i>
     <span>four on the floor</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <section>
@@ -313,23 +338,25 @@
   </section>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i><i></i>
     <span>offbeat hats</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <section>
     <h2>See it</h2>
     <figure>
-      <img class="photo lead" src="images/sequencer2.jpg" alt="Looking down on the grid of holes with coloured gumballs arranged across it">
-      <figcaption>The 2008 build. New photographs and a video of the rebuild are coming,
-        but the original demo is still up on
-        <a href="https://www.youtube.com/watch?v=ziIdjrR_MRs">YouTube</a>.</figcaption>
+      <a class="video" href="https://www.youtube.com/watch?v=ziIdjrR_MRs">
+        <img src="images/video-poster.jpg" alt="Still from the demo video: hands holding gumballs above the sequencer">
+        <span class="go">&#9654;</span>
+        <span class="tag">Watch the demo</span>
+      </a>
+      <figcaption>The 2008 demo. A video of the rebuild is coming.</figcaption>
     </figure>
 
     <div class="shots">
       <figure>
-        <img class="photo" src="images/sequencer1.jpg" alt="The sequencer surface at an angle, gumballs arranged in rows">
+        <img class="photo" src="images/sequencer2.jpg" alt="Looking down on the grid of holes with coloured gumballs arranged across it">
         <figcaption>Four rows of sixteen. Rows let you stack sounds on the same beat.</figcaption>
       </figure>
       <figure>
@@ -348,9 +375,9 @@
   </section>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i class="pink"></i><i></i><i class="blue"></i><i></i><i class="yellow"></i><i></i><i class="blue"></i><i></i><i class="pink"></i><i></i><i class="blue"></i><i class="pink"></i><i class="yellow"></i><i></i><i class="blue"></i><i class="green"></i>
     <span>a whole bar</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <section>
@@ -395,9 +422,9 @@ uv run play.py</pre>
   </section>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i class="green"></i><i class="green"></i><i class="green"></i><i class="green"></i><i class="green"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
     <span>five green, top row</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <section>
@@ -471,9 +498,9 @@ uv run play.py</pre>
   </section>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i>
     <span>every other step</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <section>
@@ -497,9 +524,9 @@ uv run play.py</pre>
   </section>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i class="pink"></i><i></i><i></i><i class="green"></i><i></i><i></i><i class="yellow"></i><i></i><i></i><i class="blue"></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i>
     <span>2008</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <section>
@@ -529,9 +556,9 @@ uv run play.py</pre>
   </section>
 
   <div class="strip">
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
     <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="pink"></i>
     <span>end of the bar</span>
+    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
   </div>
 
   <footer>
