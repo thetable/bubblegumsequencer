@@ -354,6 +354,19 @@
     background: var(--raised);
   }
 
+  /* Two by two, not auto-fit: four items on a three-wide track strands one
+     of them alone on its own row. */
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  @media (max-width: 560px) {
+    .shots {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /* --------------------------------------------------- build block */
 
   .steps {
