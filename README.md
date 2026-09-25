@@ -53,7 +53,7 @@ and two below, on the underside of the sheet facing the camera. Print at 100%
 and check the ruler on the sheet before cutting.
 
 ```sh
-uv run make_tags.py          # writes tags.pdf
+uv run make_tags.py          # writes captures/tags.pdf
 ```
 
 **3. Everything else**, as one guided walk: tools, then exposure, then
@@ -118,7 +118,7 @@ uv run probe.py --sheet pipeline.png    # all the stages as one image
 
 ```sh
 uv run probe.py              # the grid, live, with each ball labelled
-uv run probe.py --once       # one frame, to cells.csv and two plots
+uv run probe.py --once       # one frame, to captures/: a csv and two plots
 ```
 
 Keys: `space` freeze, `s` save the frame, `c` cycle what the cells are filled
@@ -137,6 +137,7 @@ Three commands, on one library.
 | `make_tags.py` | the printable tag sheet |
 | `focus_check.py` | setting the lens |
 | `board/framing.py` | where the board sits in the frame, and the room around it |
+| `board/files.py` | where the tools put what they produce |
 | `Bubblegum.command` | the same as `play.py`, for people who use Finder |
 
 | | |
@@ -149,9 +150,14 @@ Three commands, on one library.
 | `board/view.py` | drawing the board on a frame |
 | `app/` | the instrument itself: clock, voices, samples |
 
-Calibration lives in `camera.json`, `corners.json`, `warp.json`,
-`tag_reference.json` and `prototypes.json`. None of it is in the repo: it
-describes one rig at one moment, and it is rewritten as the tools run.
+Everything the tools produce goes in `captures/`: frames saved with `s`, the
+plots and the CSV from probe, the printable tag sheet. Gitignored, regenerated
+on demand, and safe to empty whenever it gets big.
+
+Calibration is the other thing outside the repo, and it is deliberately not in
+`captures/`. `camera.json`, `corners.json`, `warp.json`, `tag_reference.json`
+and `prototypes.json` describe one rig at one moment, they are read on every
+run, and losing them costs a setup walk rather than a rerun.
 
 `camera.json` records the camera by **name**, not just by index, and both
 commands check it before trusting what they opened. An index is a property

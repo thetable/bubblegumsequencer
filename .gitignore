@@ -1,11 +1,12 @@
-# Captured frames and the pictures the tools draw on them. Regenerated every
-# run, tens of megabytes, and only ever interesting for the few minutes you
-# are looking at one.
+# Everything the tools produce: frames saved with `s`, the plots and the CSV
+# from probe, the printable tag sheet. Regenerated on demand, tens of
+# megabytes within a few sessions, and only ever interesting for the few
+# minutes you are looking at one. All of it lands in captures/ so the repo
+# root stays readable; the patterns stay too, for anything written by hand.
+captures/
 *.png
 *.csv
-
-# The printable tag sheet: make_tags.py produces it in a second.
-tags.pdf
+*.pdf
 
 # Calibration and learning. All of it describes this rig at this moment
 # rather than the project, all of it is rewritten as the tools run, and

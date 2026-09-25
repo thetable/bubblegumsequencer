@@ -24,7 +24,7 @@ import sys
 import cv2
 import numpy as np
 
-from board import camera, colour, framing, geometry
+from board import camera, colour, files, framing, geometry
 from board.reader import read_board
 from board.view import draw
 
@@ -169,8 +169,9 @@ def step_centre(args):
         if key == ord("q"):
             break
         if key == ord("s"):
-            cv2.imwrite("centring.png", frame)
-            print("  wrote centring.png")
+            shot = files.capture("centring.png")
+            cv2.imwrite(shot, frame)
+            print(f"  wrote {files.shown(shot)}")
 
     cap.release()
     cv2.destroyWindow(win)
@@ -247,7 +248,7 @@ def step_geometry(args):
     frame = camera.single_frame(args)
     if frame is None:
         return False
-    cv2.imwrite("frame_last.png", frame)
+    cv2.imwrite(files.capture("frame_last.png"), frame)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     tags = geometry.detect_tags(gray)

@@ -22,6 +22,8 @@ import time
 import cv2
 import numpy as np
 
+from board import files
+
 PROBE = 96  # side of the square focus probe, in source pixels
 
 
@@ -180,9 +182,10 @@ def main():
         if key == ord("r"):
             peak = 0.0
         if key == ord("s"):
-            name = datetime.datetime.now().strftime("frame_%Y%m%d_%H%M%S.png")
+            name = files.capture(datetime.datetime.now().strftime(
+                "frame_%Y%m%d_%H%M%S.png"))
             cv2.imwrite(name, frame)
-            print(f"saved {name}")
+            print(f"saved {files.shown(name)}")
         if key == ord("a"):
             auto_exposure = not auto_exposure
             # macOS UVC support for these is patchy. If nothing changes on

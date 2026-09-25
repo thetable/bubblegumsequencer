@@ -12,7 +12,7 @@ at the 2.6 to 5 px/mm this camera resolves is 8 to 16 px per module. Detection
 wants 3 and is happy at 5.
 
 Usage:
-    python make_tags.py            # writes tags.pdf and tags.png
+    python make_tags.py            # writes captures/tags.pdf and .png
 
 Print at 100%, no scaling, no "fit to page". Then check the ruler on the sheet
 with a real one before cutting anything out: if the 100 mm line is not 100 mm,
@@ -24,6 +24,8 @@ import sys
 import cv2
 import numpy as np
 from PIL import Image
+
+from board import files
 
 DPI = 600
 MM = DPI / 25.4
@@ -84,9 +86,10 @@ def main():
     text(sheet, "measure me: this line is 100 mm", mm(20), mm(282), 1.4, 2)
 
     out = Image.fromarray(sheet)
-    out.save("tags.pdf", resolution=DPI)
-    out.save("tags.png", dpi=(DPI, DPI))
-    print(f"tags.pdf and tags.png written: ids {IDS}, "
+    pdf = files.capture("tags.pdf")
+    out.save(pdf, resolution=DPI)
+    out.save(files.capture("tags.png"), dpi=(DPI, DPI))
+    print(f"{files.shown(pdf)} and tags.png written: ids {IDS}, "
           f"{TAG_MM:.0f} mm tags on A4 at {DPI} dpi.")
     print("Print at 100%, then check the 100 mm line with a ruler.")
     return 0

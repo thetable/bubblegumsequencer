@@ -6,7 +6,7 @@ and how far the board has drifted since the geometry was recorded. The same
 loop the instrument runs, with a picture attached.
 
     python inspect.py                    # the live window
-    python inspect.py --once             # one frame to cells.csv and two plots
+    python probe.py --once               # one frame to captures/, csv and plots
     python inspect.py --image frame.png  # look at a saved frame instead
 
 Keys:
@@ -27,12 +27,12 @@ import time
 import cv2
 import numpy as np
 
-from board import camera, colour, pattern, stages
+from board import camera, colour, files, pattern, stages
 from board.reader import read_board
 from board.view import FILLS, draw
 
 
-def write_csv(cells, path="cells.csv"):
+def write_csv(cells, path):
     with open(path, "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["idx", "row", "col", "x", "y", "rx", "ry", "found",
@@ -102,11 +102,11 @@ def draw_plots(cells, path):
 
 def report(frame, cells):
     """The numbers worth looking at when something is not separating."""
-    write_csv(cells)
-    draw_map(frame, cells, "cells_map.png")
+    write_csv(cells, files.capture("cells.csv"))
+    draw_map(frame, cells, files.capture("cells_map.png"))
     # The plots can only show cells that were measured; the CSV keeps all 64
     # so that the missing ones are still visible as missing.
-    draw_plots(colour.sampled(cells), "cells_plot.png")
+    draw_plots(colour.sampled(cells), files.capture("cells_plot.png"))
 
     blown = [c["idx"] for c in colour.sampled(cells) if c["clipped"] > 0.02]
     if blown:
@@ -126,7 +126,7 @@ def report(frame, cells):
               f"{len(vals) - low} above")
         print(f"  gap between the two groups: {gap:.1f}"
               f"   ({'clean' if gap > 0.08 * (max(vals) - min(vals)) else 'weak'})")
-    print("\ncells.csv, cells_map.png and cells_plot.png written")
+    print(f"\nwritten to {files.shown(files.CAPTURES)}/: cells.csv, cells_map.png, cells_plot.png")
 
 
 def main():
@@ -160,8 +160,9 @@ def main():
         if frame is None:
             print("no frame")
             return 1
-        cv2.imwrite(args.sheet, stages.contact_sheet(frame))
-        print(f"wrote {args.sheet}")
+        sheet = files.capture(args.sheet)
+        cv2.imwrite(sheet, stages.contact_sheet(frame))
+        print(f"wrote {files.shown(sheet)}")
         return 0
 
     if args.image or args.once:
@@ -178,7 +179,7 @@ def main():
             report(frame, cells)
         view = draw(frame, cells, tags, note, fill, drift, not args.no_mirror)
         if args.shot:
-            cv2.imwrite(args.shot, view)
+            cv2.imwrite(files.capture(args.shot), view)
             print(f"wrote {args.shot}")
         return 0
 
@@ -239,9 +240,10 @@ def main():
             fill = FILLS[(FILLS.index(fill) + 1) % len(FILLS)]
         if key == ord("s"):
             stamp = time.strftime("%H%M%S")
-            cv2.imwrite(f"live_{stamp}.png", frame)
-            cv2.imwrite(f"live_{stamp}_view.png", view)
-            print(f"saved live_{stamp}.png and live_{stamp}_view.png")
+            raw = files.capture(f"live_{stamp}.png")
+            cv2.imwrite(raw, frame)
+            cv2.imwrite(files.capture(f"live_{stamp}_view.png"), view)
+            print(f"saved {files.shown(raw)} and its _view")
 
     cap.release()
     cv2.destroyAllWindows()
