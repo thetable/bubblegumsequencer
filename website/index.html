@@ -1,24 +1,27 @@
 <title>Bubblegum Sequencer</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..800,0..100,0..1&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..800,0..100,0..1&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+/>
 <style>
   :root {
     /* Taken off the instrument: the sheet is glossy black acrylic, the balls
        are these four exact values, straight out of app.css. */
-    --pink:   #f0608f;
+    --pink: #f0608f;
     --yellow: #e8d045;
-    --blue:   #9fc4e8;
-    --green:  #86cc7a;
+    --blue: #9fc4e8;
+    --green: #86cc7a;
 
     /* The neutral leans rose, toward the accent, instead of the usual
        yellow-beige parchment. Warm, but clearly a colour and not an
        off-white that nobody chose. */
-    --paper:  #f4ebe7;
+    --paper: #f4ebe7;
     --raised: #fdf6f3;
-    --sheet:  #1a1517;   /* the plexiglass, warm rather than blue-black */
-    --ink:    #201a19;
-    --muted:  #6f625e;
-    --rule:   #e3d4cd;
-    --hole:   #ddcfc9;
+    --sheet: #1a1517; /* the plexiglass, warm rather than blue-black */
+    --ink: #201a19;
+    --muted: #6f625e;
+    --rule: #e3d4cd;
+    --hole: #ddcfc9;
 
     --accent: var(--pink);
     --on-accent: #33101d;
@@ -31,29 +34,31 @@
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --paper:  #171315;
+      --paper: #171315;
       --raised: #211b1e;
-      --sheet:  #100c0e;
-      --ink:    #efe6e3;
-      --muted:  #a0918c;
-      --rule:   #342b2e;
-      --hole:   #3b3134;
+      --sheet: #100c0e;
+      --ink: #efe6e3;
+      --muted: #a0918c;
+      --rule: #342b2e;
+      --hole: #3b3134;
       --on-accent: #2a0a15;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --paper:  #171315;
+    --paper: #171315;
     --raised: #211b1e;
-    --sheet:  #100c0e;
-    --ink:    #efe6e3;
-    --muted:  #a0918c;
-    --rule:   #342b2e;
-    --hole:   #3b3134;
+    --sheet: #100c0e;
+    --ink: #efe6e3;
+    --muted: #a0918c;
+    --rule: #342b2e;
+    --hole: #3b3134;
     --on-accent: #2a0a15;
   }
 
-  * { box-sizing: border-box; }
+  * {
+    box-sizing: border-box;
+  }
 
   body {
     background: var(--paper);
@@ -70,13 +75,19 @@
     padding-inline: 20px;
     padding-block: 0 clamp(72px, 10vw, 128px);
   }
-  .wide { max-width: 980px; }
+  .wide {
+    max-width: 980px;
+  }
 
   /* ---------------------------------------------------------- type */
 
-  h1, h2, h3 {
+  h1,
+  h2,
+  h3 {
     font-family: var(--display);
-    font-variation-settings: "SOFT" 48, "WONK" 1;
+    font-variation-settings:
+      "SOFT" 48,
+      "WONK" 1;
     text-wrap: balance;
     margin: 0;
     letter-spacing: -0.015em;
@@ -86,7 +97,9 @@
     font-weight: 700;
     line-height: 0.98;
   }
-  h1 .gum { color: var(--accent); }
+  h1 .gum {
+    color: var(--accent);
+  }
   h2 {
     font-size: clamp(27px, 4.4vw, 36px);
     font-weight: 600;
@@ -97,10 +110,22 @@
     font-weight: 600;
     line-height: 1.25;
   }
-  p { margin: 0; }
-  a { color: inherit; text-decoration-color: var(--accent); text-underline-offset: 3px; }
-  a:hover { color: var(--accent); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+  p {
+    margin: 0;
+  }
+  a {
+    color: inherit;
+    text-decoration-color: var(--accent);
+    text-underline-offset: 3px;
+  }
+  a:hover {
+    color: var(--accent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
 
   .lede {
     font-size: clamp(19px, 2.4vw, 22px);
@@ -115,41 +140,93 @@
     text-transform: uppercase;
     color: var(--muted);
   }
-  .small { font-size: 15px; color: var(--muted); }
+  .small {
+    font-size: 15px;
+    color: var(--muted);
+  }
 
-  section { display: flex; flex-direction: column; gap: 26px; }
-  .prose { display: flex; flex-direction: column; gap: 14px; max-width: 65ch; }
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+  .prose {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 65ch;
+  }
 
   /* ------------------------------------------------- the hole strip */
   /* Section rules are a real row of sixteen holes. Each one carries an
      actual pattern, so the divider says something rather than decorating. */
-  .strip { display: flex; gap: 6px; align-items: center; padding-block: clamp(64px, 11vw, 116px) clamp(26px, 4vw, 40px); }
-  .strip i {
-    width: 11px; height: 11px; border-radius: 50%;
-    background: var(--hole); flex: none;
+  .strip {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding-block: clamp(64px, 11vw, 116px) clamp(26px, 4vw, 40px);
   }
-  .strip i.pink { background: var(--pink); }
-  .strip i.yellow { background: var(--yellow); }
-  .strip i.blue { background: var(--blue); }
-  .strip i.green { background: var(--green); }
+  .strip i {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--hole);
+    flex: none;
+  }
+  .strip i.pink {
+    background: var(--pink);
+  }
+  .strip i.yellow {
+    background: var(--yellow);
+  }
+  .strip i.blue {
+    background: var(--blue);
+  }
+  .strip i.green {
+    background: var(--green);
+  }
   button.tap {
     flex: none;
-    border: none; background: none; padding: 0 0 0 10px;
-    color: var(--muted); opacity: 0.55;
-    cursor: pointer; font-size: 9px; line-height: 1;
+    border: none;
+    background: none;
+    padding: 0 0 0 10px;
+    color: var(--muted);
+    opacity: 0.55;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 1;
   }
-  button.tap:hover { color: var(--accent); opacity: 1; }
-  button.tap[aria-pressed="true"] { color: var(--accent); opacity: 1; }
+  button.tap:hover {
+    color: var(--accent);
+    opacity: 1;
+  }
+  button.tap[aria-pressed="true"] {
+    color: var(--accent);
+    opacity: 1;
+  }
 
   .strip span {
-    font-family: var(--mono); font-size: 11px; color: var(--muted);
-    margin-left: 14px; letter-spacing: 0.08em; white-space: nowrap;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 14px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
   }
 
   /* ------------------------------------------------------- the hero */
 
-  header { padding-block: clamp(56px, 10vw, 104px) 0; display: flex; flex-direction: column; gap: 22px; }
-  .titles { display: flex; flex-direction: column; gap: 14px; }
+  header {
+    padding-block: clamp(56px, 10vw, 104px) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .titles {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
 
   .board {
     background: var(--sheet);
@@ -170,30 +247,80 @@
     padding: 0;
     cursor: pointer;
     background: #2a2226;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
-    transition: transform 0.12s ease, background 0.12s ease;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+    transition:
+      transform 0.12s ease,
+      background 0.12s ease;
   }
-  .cell:hover { transform: scale(1.14); }
-  .cell.pink   { background: var(--pink);   box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25); }
-  .cell.yellow { background: var(--yellow); box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25); }
-  .cell.blue   { background: var(--blue);   box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25); }
-  .cell.green  { background: var(--green);  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25); }
-  .col-now { outline: 2px solid rgba(255,255,255,0.75); outline-offset: 3px; }
+  .cell:hover {
+    transform: scale(1.14);
+  }
+  .cell.pink {
+    background: var(--pink);
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+  }
+  .cell.yellow {
+    background: var(--yellow);
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+  }
+  .cell.blue {
+    background: var(--blue);
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+  }
+  .cell.green {
+    background: var(--green);
+    box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+  }
+  .col-now {
+    outline: 2px solid rgba(255, 255, 255, 0.75);
+    outline-offset: 3px;
+  }
 
-  .transport { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
-  button.play {
-    font-family: var(--body); font-weight: 700; font-size: 16px;
-    background: var(--accent); color: var(--on-accent);
-    border: none; border-radius: 999px; padding: 11px 26px; cursor: pointer;
+  .transport {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
   }
-  button.play:hover { filter: brightness(1.07); }
-  .tempo { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 13px; color: var(--muted); }
-  .tempo input { accent-color: var(--accent); width: 120px; }
-  .hint { font-size: 14px; color: var(--muted); }
+  button.play {
+    font-family: var(--body);
+    font-weight: 700;
+    font-size: 16px;
+    background: var(--accent);
+    color: var(--on-accent);
+    border: none;
+    border-radius: 999px;
+    padding: 11px 26px;
+    cursor: pointer;
+  }
+  button.play:hover {
+    filter: brightness(1.07);
+  }
+  .tempo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .tempo input {
+    accent-color: var(--accent);
+    width: 120px;
+  }
+  .hint {
+    font-size: 14px;
+    color: var(--muted);
+  }
 
   /* ------------------------------------------------------- figures */
 
-  figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
   .shot {
     aspect-ratio: 4 / 3;
     border: 1px dashed var(--rule);
@@ -205,63 +332,80 @@
     padding: 24px;
     gap: 8px;
   }
-  .shot .what { font-family: var(--display); font-size: 19px; font-variation-settings: "SOFT" 48, "WONK" 1; }
-  .shot .how { font-size: 14px; color: var(--muted); max-width: 40ch; }
-  .shot.wideshot { aspect-ratio: 16 / 9; }
-  .photo { width: 100%; border-radius: 10px; display: block; background: var(--raised); }
-
-  /* The video is a poster that opens YouTube, not an embed. It loads in
-     nothing, it does not hand every visitor to Google before they ask, and
-     it works the same everywhere. */
-  a.video {
-    position: relative; display: block; border-radius: 10px; overflow: hidden;
-    background: var(--sheet); line-height: 0;
+  .shot .what {
+    font-family: var(--display);
+    font-size: 19px;
+    font-variation-settings:
+      "SOFT" 48,
+      "WONK" 1;
   }
-  a.video img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
-                filter: saturate(1.05); }
-  a.video::after {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.38));
+  .shot .how {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 40ch;
   }
-  a.video .go {
-    position: absolute; z-index: 1; left: 50%; top: 50%;
-    transform: translate(-50%, -50%);
-    width: 74px; height: 74px; border-radius: 50%;
-    background: var(--accent); color: var(--on-accent);
-    display: grid; place-items: center; font-size: 24px; padding-left: 5px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.35);
-    transition: transform 0.15s ease;
+  .shot.wideshot {
+    aspect-ratio: 16 / 9;
   }
-  a.video:hover .go { transform: translate(-50%, -50%) scale(1.09); }
-  a.video .tag {
-    position: absolute; z-index: 1; left: 16px; bottom: 14px;
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
-    text-transform: uppercase; color: rgba(255,255,255,0.82);
+  .photo {
+    width: 100%;
+    border-radius: 10px;
+    display: block;
+    background: var(--raised);
   }
-  figcaption { font-size: 14.5px; color: var(--muted); }
-
-  /* Two by two, not auto-fit: four items on a three-wide track strands one
-     of them alone on its own row. */
-  .shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-  @media (max-width: 560px) { .shots { grid-template-columns: 1fr; } }
 
   /* --------------------------------------------------- build block */
 
-  .steps { display: flex; flex-direction: column; gap: 2px; }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
   pre {
-    font-family: var(--mono); font-size: 14px; line-height: 1.75;
-    background: var(--sheet); color: #e8e4dc;
-    padding: 18px 20px; border-radius: 10px; margin: 0;
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.75;
+    background: var(--sheet);
+    color: #e8e4dc;
+    padding: 18px 20px;
+    border-radius: 10px;
+    margin: 0;
     overflow-x: auto;
   }
-  pre .c { color: #8b8f98; }
+  pre .c {
+    color: #8b8f98;
+  }
 
-  .spec { border-collapse: collapse; width: 100%; font-size: 15.5px; }
-  .spec th, .spec td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  .spec th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
-  .spec td:first-child { width: 34%; font-weight: 700; }
-  .spec tr:last-child td { border-bottom: none; }
-  .tablewrap { overflow-x: auto; }
+  .spec {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 15.5px;
+  }
+  .spec th,
+  .spec td {
+    text-align: left;
+    padding: 10px 12px 10px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .spec th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .spec td:first-child {
+    width: 34%;
+    font-weight: 700;
+  }
+  .spec tr:last-child td {
+    border-bottom: none;
+  }
+  .tablewrap {
+    overflow-x: auto;
+  }
 
   /* ---------------------------------------------------- pipeline */
 
@@ -274,139 +418,279 @@
     border-top: 1px solid var(--rule);
   }
   .stage .n {
-    font-family: var(--mono); font-size: 13px; color: var(--accent);
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
     padding-top: 3px;
   }
-  .stage .body { display: flex; flex-direction: column; gap: 6px; }
-  .stage h3 { font-size: 18px; }
-  .stage p { font-size: 15.5px; color: var(--muted); }
+  .stage .body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stage h3 {
+    font-size: 18px;
+  }
+  .stage p {
+    font-size: 15.5px;
+    color: var(--muted);
+  }
 
   /* ------------------------------------------------------ closing */
 
-  .links { display: flex; flex-direction: column; gap: 8px; font-size: 15.5px; }
-  .press { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 15px; }
-  footer { border-top: 1px solid var(--rule); padding-top: 34px; color: var(--muted); font-size: 14.5px; display: flex; flex-direction: column; gap: 8px; }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 15.5px;
+  }
+  .press {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 15px;
+  }
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 34px;
+    color: var(--muted);
+    font-size: 14.5px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
 
   @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; }
+    * {
+      transition: none !important;
+    }
   }
 </style>
 
 <div class="wrap wide">
-
   <header>
     <div class="titles">
       <div class="eyebrow">Hannes Hesse &middot; 2008 / 2026</div>
       <h1><span class="gum">Bubblegum</span> Sequencer</h1>
-      <p class="lede">Making music with candy. A drum machine you program by dropping gumballs into holes.</p>
+      <p class="lede">
+        Making music with candy. A drum machine you program by dropping gumballs
+        into holes.
+      </p>
     </div>
 
     <div class="board">
-      <div class="grid" id="grid" role="group" aria-label="Sixteen step sequencer, four rows"></div>
+      <div
+        class="grid"
+        id="grid"
+        role="group"
+        aria-label="Sixteen step sequencer, four rows"
+      ></div>
     </div>
 
     <div class="transport">
       <button class="play" id="play" type="button">Play</button>
       <div class="tempo">
         <label for="bpm">tempo</label>
-        <input type="range" id="bpm" min="70" max="160" value="104">
+        <input type="range" id="bpm" min="70" max="160" value="104" />
         <span id="bpmOut">104</span>
       </div>
-      <p class="hint">Click the holes. This one is real, it just has no gumballs in it.</p>
+      <p class="hint">
+        Click the holes. This one is real, it just has no gumballs in it.
+      </p>
     </div>
   </header>
 
   <div class="strip">
-    <i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i>
+    <i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i><i></i
+    ><i></i><i class="pink"></i><i></i><i></i><i></i><i class="pink"></i><i></i
+    ><i></i><i></i>
     <span>four on the floor</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <section>
     <h2>What it is</h2>
     <div class="prose">
-      <p>The Bubblegum Sequencer is a physical step sequencer. A grid of holes is the
-        canvas. You arrange coloured gumballs on it. The sixteen columns are the
-        sixteenth notes in a bar, and each colour is a sound.</p>
-      <p>A camera under the surface watches the holes and works out which colour is
-        sitting in each one. What you see on the board is what you hear.</p>
-      <p><em>Finally, people can't claim anymore that electronic music isn't handmade.</em></p>
-      <p class="small">Built in 2007 for the course Theory and Practice of Tangible User
-        Interfaces at UC Berkeley's School of Information, and rebuilt from scratch in
-        2026.</p>
+      <p>
+        The Bubblegum Sequencer is a physical step sequencer. A grid of holes is
+        the canvas. You arrange coloured gumballs on it. The sixteen columns are
+        the sixteenth notes in a bar, and each colour is a sound.
+      </p>
+      <p>
+        A camera under the surface watches the holes and works out which colour
+        is sitting in each one. What you see on the board is what you hear.
+      </p>
+      <p>
+        <em
+          >Finally, people can't claim anymore that electronic music isn't
+          handmade.</em
+        >
+      </p>
+      <p class="small">
+        Built in 2007 for the course Theory and Practice of Tangible User
+        Interfaces at UC Berkeley's School of Information, and rebuilt from
+        scratch in 2026.
+      </p>
     </div>
   </section>
 
   <div class="strip">
-    <i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i><i></i>
+    <i></i><i></i><i class="blue"></i><i></i><i></i><i></i><i class="blue"></i
+    ><i></i><i></i><i></i><i class="blue"></i><i></i><i></i><i></i
+    ><i class="blue"></i><i></i>
     <span>offbeat hats</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <section>
     <h2>See it</h2>
     <figure>
-      <a class="video" href="https://www.youtube.com/watch?v=ziIdjrR_MRs">
-        <img src="images/video-poster.jpg" alt="Still from the demo video: hands holding gumballs above the sequencer">
-        <span class="go">&#9654;</span>
-        <span class="tag">Watch the demo</span>
-      </a>
+      <iframe
+        width="100%"
+        style="aspect-ratio: 16/9; border: 0; border-radius: 10px"
+        src="https://www.youtube-nocookie.com/embed/ziIdjrR_MRs"
+        title="Bubblegum Sequencer demo"
+        allowfullscreen
+      ></iframe>
       <figcaption>The 2008 demo. A video of the rebuild is coming.</figcaption>
     </figure>
 
     <div class="shots">
       <figure>
-        <img class="photo" src="images/sequencer2.jpg" alt="Looking down on the grid of holes with coloured gumballs arranged across it">
-        <figcaption>Four rows of sixteen. Rows let you stack sounds on the same beat.</figcaption>
+        <img
+          class="photo"
+          src="images/sequencer2.jpg"
+          alt="Looking down on the grid of holes with coloured gumballs arranged across it"
+        />
+        <figcaption>
+          Four rows of sixteen. Rows let you stack sounds on the same beat.
+        </figcaption>
       </figure>
       <figure>
-        <img class="photo" src="images/sequencer3.jpg" alt="Two hands placing yellow gumballs into holes">
-        <figcaption>Programming it is picking up a ball and putting it down.</figcaption>
+        <img
+          class="photo"
+          src="images/sequencer3.jpg"
+          alt="Two hands placing yellow gumballs into holes"
+        />
+        <figcaption>
+          Programming it is picking up a ball and putting it down.
+        </figcaption>
       </figure>
       <figure>
-        <img class="photo" src="images/sequencer4.jpg" alt="A hand placing a green gumball into a hole in the grid">
+        <img
+          class="photo"
+          src="images/sequencer4.jpg"
+          alt="A hand placing a green gumball into a hole in the grid"
+        />
         <figcaption>You can rearrange the whole bar while it plays.</figcaption>
       </figure>
       <figure>
-        <img class="photo" src="images/sequencer6.jpg" alt="Four glass bowls of gumballs sorted by colour, each labelled with a drum sound">
-        <figcaption>One bowl per sound. The mapping lives on the table, not in a menu.</figcaption>
+        <img
+          class="photo"
+          src="images/sequencer6.jpg"
+          alt="Four glass bowls of gumballs sorted by colour, each labelled with a drum sound"
+        />
+        <figcaption>
+          One bowl per sound. The mapping lives on the table, not in a menu.
+        </figcaption>
       </figure>
     </div>
   </section>
 
   <div class="strip">
-    <i class="pink"></i><i></i><i class="blue"></i><i></i><i class="yellow"></i><i></i><i class="blue"></i><i></i><i class="pink"></i><i></i><i class="blue"></i><i class="pink"></i><i class="yellow"></i><i></i><i class="blue"></i><i class="green"></i>
+    <i class="pink"></i><i></i><i class="blue"></i><i></i><i class="yellow"></i
+    ><i></i><i class="blue"></i><i></i><i class="pink"></i><i></i
+    ><i class="blue"></i><i class="pink"></i><i class="yellow"></i><i></i
+    ><i class="blue"></i><i class="green"></i>
     <span>a whole bar</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <section>
     <h2>Build one</h2>
     <div class="prose">
-      <p>This is the part that is new. In 2008 the grid was lined up by hand and the
-        colours were set with a screen full of sliders, and the honest advice at the
-        time was that you would have to hack at it for a while. The rebuild is meant to
-        be buildable by someone who is not me.</p>
+      <p>
+        This is the part that is new. In 2008 the grid was lined up by hand and
+        the colours were set with a screen full of sliders, and the honest
+        advice at the time was that you would have to hack at it for a while.
+        The rebuild is meant to be buildable by someone who is not me.
+      </p>
       <p>Roughly what it takes:</p>
     </div>
 
     <div class="tablewrap">
       <table class="spec">
         <tbody>
-          <tr><td>The surface</td><td>A sheet of black acrylic about 47 by 50 cm, with 64 holes in it, four rows of sixteen, about 2.5 cm apart. Sanded underneath so it does not glare.</td></tr>
-          <tr><td>The box</td><td>A plain plywood box about 46 by 50 cm and 28 cm deep, painted white inside. The sheet lies on top.</td></tr>
-          <tr><td>The camera</td><td>Any cheap 1080p webcam with a wide lens, sitting on the floor of the box looking up. About 30 euros.</td></tr>
-          <tr><td>The light</td><td>LED strips low on the inside walls, pointing up and inwards.</td></tr>
-          <tr><td>The markers</td><td>Four printed tags stuck to the underside of the sheet. These are what let you shove the board around while it plays.</td></tr>
-          <tr><td>The gumballs</td><td>Standard ones, about 2 cm, in four colours.</td></tr>
+          <tr>
+            <td>The surface</td>
+            <td>
+              A sheet of black acrylic about 47 by 50 cm, with 64 holes in it,
+              four rows of sixteen, about 2.5 cm apart. Sanded underneath so it
+              does not glare.
+            </td>
+          </tr>
+          <tr>
+            <td>The box</td>
+            <td>
+              A plain plywood box about 46 by 50 cm and 28 cm deep, painted
+              white inside. The sheet lies on top.
+            </td>
+          </tr>
+          <tr>
+            <td>The camera</td>
+            <td>
+              Any cheap 1080p webcam with a wide lens, sitting on the floor of
+              the box looking up. About 30 euros.
+            </td>
+          </tr>
+          <tr>
+            <td>The light</td>
+            <td>
+              LED strips low on the inside walls, pointing up and inwards.
+            </td>
+          </tr>
+          <tr>
+            <td>The markers</td>
+            <td>
+              Four printed tags stuck to the underside of the sheet. These are
+              what let you shove the board around while it plays.
+            </td>
+          </tr>
+          <tr>
+            <td>The gumballs</td>
+            <td>Standard ones, about 2 cm, in four colours.</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
-    <p class="small">Then three commands. The first takes about twenty seconds, the
-      second walks you through setting the camera up and teaching it the colours, and
-      the third is the instrument.</p>
-<pre><span class="c"># get it</span>
+    <p class="small">
+      Then three commands. The first takes about twenty seconds, the second
+      walks you through setting the camera up and teaching it the colours, and
+      the third is the instrument.
+    </p>
+    <pre><span class="c"># get it</span>
 git clone https://github.com/thetable/bubblegumsequencer
 cd bubblegumsequencer
 
@@ -416,139 +700,272 @@ uv run setup.py
 <span class="c"># play</span>
 uv run play.py</pre>
 
-    <p class="small">macOS for now. Proper drawings, a cut list and step by step
-      instructions to follow. In the meantime the
-      <a href="https://github.com/thetable/bubblegumsequencer">source is on GitHub</a>.</p>
+    <p class="small">
+      macOS for now. Proper drawings, a cut list and step by step instructions
+      to follow. In the meantime the
+      <a href="https://github.com/thetable/bubblegumsequencer"
+        >source is on GitHub</a
+      >.
+    </p>
   </section>
 
   <div class="strip">
-    <i class="green"></i><i class="green"></i><i class="green"></i><i class="green"></i><i class="green"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    <i class="green"></i><i class="green"></i><i class="green"></i
+    ><i class="green"></i><i class="green"></i><i></i><i></i><i></i><i></i
+    ><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
     <span>five green, top row</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <section>
     <h2>How it works</h2>
     <div class="prose">
-      <p>A camera about 23 cm under a scratched black sheet, through a lens wide enough
-        to bend the rows. Most of what the software does is undo something you can see
-        going wrong in the first frame.</p>
+      <p>
+        A camera about 23 cm under a scratched black sheet, through a lens wide
+        enough to bend the rows. Most of what the software does is undo
+        something you can see going wrong in the first frame.
+      </p>
     </div>
 
     <figure>
       <div class="shot wideshot">
         <span class="what">The seven steps, as one image</span>
-        <span class="how">Drawn by the software itself, so it always matches what it
-          is actually doing.</span>
+        <span class="how"
+          >Drawn by the software itself, so it always matches what it is
+          actually doing.</span
+        >
       </div>
     </figure>
 
     <div>
-      <div class="stage"><div class="n">1</div><div class="body">
-        <h3>What the camera sees</h3>
-        <p>The rows bow outwards, the corners go dark, and the light strips are in
-          shot. An empty hole is not reliably darker than a full one, so no single
-          brightness will tell them apart.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">1</div>
+        <div class="body">
+          <h3>What the camera sees</h3>
+          <p>
+            The rows bow outwards, the corners go dark, and the light strips are
+            in shot. An empty hole is not reliably darker than a full one, so no
+            single brightness will tell them apart.
+          </p>
+        </div>
+      </div>
 
-      <div class="stage"><div class="n">2</div><div class="body">
-        <h3>Even out the light</h3>
-        <p>Divide the picture by a blurred copy of itself. What is left is how much
-          brighter each thing is than whatever is immediately around it, and that reads
-          the same in a dark corner as in the bright middle.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">2</div>
+        <div class="body">
+          <h3>Even out the light</h3>
+          <p>
+            Divide the picture by a blurred copy of itself. What is left is how
+            much brighter each thing is than whatever is immediately around it,
+            and that reads the same in a dark corner as in the bright middle.
+          </p>
+        </div>
+      </div>
 
-      <div class="stage"><div class="n">3</div><div class="body">
-        <h3>Find the holes</h3>
-        <p>Keep the round blobs of roughly the right size. Every hole is the same size,
-          so the picture sets its own scale and there is no number to type in. It never
-          finds all 64 at once.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">3</div>
+        <div class="body">
+          <h3>Find the holes</h3>
+          <p>
+            Keep the round blobs of roughly the right size. Every hole is the
+            same size, so the picture sets its own scale and there is no number
+            to type in. It never finds all 64 at once.
+          </p>
+        </div>
+      </div>
 
-      <div class="stage"><div class="n">4</div><div class="body">
-        <h3>Find the markers</h3>
-        <p>Four printed tags on the underside say where the board is. Three of them is
-          enough, which is why you can push the board around mid-bar and the grid keeps
-          up.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">4</div>
+        <div class="body">
+          <h3>Find the markers</h3>
+          <p>
+            Four printed tags on the underside say where the board is. Three of
+            them is enough, which is why you can push the board around mid-bar
+            and the grid keeps up.
+          </p>
+        </div>
+      </div>
 
-      <div class="stage"><div class="n">5</div><div class="body">
-        <h3>Put the grid back</h3>
-        <p>The grid was measured once and saved. Every frame it gets laid back onto
-          wherever the markers say the board is, so holes the camera cannot quite make
-          out still end up in the right place.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">5</div>
+        <div class="body">
+          <h3>Put the grid back</h3>
+          <p>
+            The grid was measured once and saved. Every frame it gets laid back
+            onto wherever the markers say the board is, so holes the camera
+            cannot quite make out still end up in the right place.
+          </p>
+        </div>
+      </div>
 
-      <div class="stage"><div class="n">6</div><div class="body">
-        <h3>Read each hole</h3>
-        <p>Take the middle colour from inside each one and throw away the brightest few
-          percent first, so a reflection off a shiny shell cannot drag the answer
-          around.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">6</div>
+        <div class="body">
+          <h3>Read each hole</h3>
+          <p>
+            Take the middle colour from inside each one and throw away the
+            brightest few percent first, so a reflection off a shiny shell
+            cannot drag the answer around.
+          </p>
+        </div>
+      </div>
 
-      <div class="stage"><div class="n">7</div><div class="body">
-        <h3>Name the colours</h3>
-        <p>Each hole gets the nearest colour you taught it. Nothing is taught about
-          empty: a hole is empty when no colour fits. On a bright afternoon that is not
-          quite enough, because daylight coming down through an empty hole can look like
-          a pale ball, so it also has to be shaped like one, brighter in the middle than
-          at the edge, the way a lit sphere is.</p>
-      </div></div>
+      <div class="stage">
+        <div class="n">7</div>
+        <div class="body">
+          <h3>Name the colours</h3>
+          <p>
+            Each hole gets the nearest colour you taught it. Nothing is taught
+            about empty: a hole is empty when no colour fits. On a bright
+            afternoon that is not quite enough, because daylight coming down
+            through an empty hole can look like a pale ball, so it also has to
+            be shaped like one, brighter in the middle than at the edge, the way
+            a lit sphere is.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
   <div class="strip">
-    <i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i><i class="yellow"></i>
+    <i></i><i class="yellow"></i><i></i><i class="yellow"></i><i></i
+    ><i class="yellow"></i><i></i><i class="yellow"></i><i></i
+    ><i class="yellow"></i><i></i><i class="yellow"></i><i></i
+    ><i class="yellow"></i><i></i><i class="yellow"></i>
     <span>every other step</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <section>
     <h2>What changed since 2008</h2>
     <div class="tablewrap">
       <table class="spec">
-        <thead><tr><th></th><th>2008</th><th>2026</th></tr></thead>
+        <thead>
+          <tr>
+            <th></th>
+            <th>2008</th>
+            <th>2026</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr><td>Finding the grid</td><td>Lined up by hand, and it drifted</td><td>Four printed markers, found fresh in every frame</td></tr>
-          <tr><td>Reading a colour</td><td>The average of 25 pixels, which one reflection could throw off</td><td>The middle colour of about 2000</td></tr>
-          <tr><td>Settings</td><td>A window full of sliders</td><td>None. You show it the balls and it works them out</td></tr>
-          <tr><td>Sound</td><td>MIDI, through a driver you had to install</td><td>A browser tab</td></tr>
-          <tr><td>Software</td><td>Java and ImageJ</td><td>Python and OpenCV</td></tr>
-          <tr><td>Getting it running</td><td>"You'll probably need to hack around for a while"</td><td>Three commands</td></tr>
+          <tr>
+            <td>Finding the grid</td>
+            <td>Lined up by hand, and it drifted</td>
+            <td>Four printed markers, found fresh in every frame</td>
+          </tr>
+          <tr>
+            <td>Reading a colour</td>
+            <td>
+              The average of 25 pixels, which one reflection could throw off
+            </td>
+            <td>The middle colour of about 2000</td>
+          </tr>
+          <tr>
+            <td>Settings</td>
+            <td>A window full of sliders</td>
+            <td>None. You show it the balls and it works them out</td>
+          </tr>
+          <tr>
+            <td>Sound</td>
+            <td>MIDI, through a driver you had to install</td>
+            <td>A browser tab</td>
+          </tr>
+          <tr>
+            <td>Software</td>
+            <td>Java and ImageJ</td>
+            <td>Python and OpenCV</td>
+          </tr>
+          <tr>
+            <td>Getting it running</td>
+            <td>"You'll probably need to hack around for a while"</td>
+            <td>Three commands</td>
+          </tr>
         </tbody>
       </table>
     </div>
-    <p class="small">The original paper was blunt about what went wrong: "the sensitivity
-      of the camera presented the most significant problem. Shadows and other visual
-      noise..." Most of the rebuild is an answer to that.</p>
+    <p class="small">
+      The original paper was blunt about what went wrong: "the sensitivity of
+      the camera presented the most significant problem. Shadows and other
+      visual noise..." Most of the rebuild is an answer to that.
+    </p>
   </section>
 
   <div class="strip">
-    <i class="pink"></i><i></i><i></i><i class="green"></i><i></i><i></i><i class="yellow"></i><i></i><i></i><i class="blue"></i><i></i><i></i><i class="pink"></i><i></i><i></i><i></i>
+    <i class="pink"></i><i></i><i></i><i class="green"></i><i></i><i></i
+    ><i class="yellow"></i><i></i><i></i><i class="blue"></i><i></i><i></i
+    ><i class="pink"></i><i></i><i></i><i></i>
     <span>2008</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <section>
     <h2>The original</h2>
     <div class="prose">
-      <p>The first Bubblegum Sequencer was made by Hannes Hesse, Andrew McDiarmid and
-        Rosie Han in the autumn of 2007. It went to Maker Faire, and for a few weeks in
-        January 2008 it was on rather a lot of blogs.</p>
+      <p>
+        The first Bubblegum Sequencer was made by Hannes Hesse, Andrew McDiarmid
+        and Rosie Han in the autumn of 2007. It went to Maker Faire, and for a
+        few weeks in January 2008 it was on rather a lot of blogs.
+      </p>
     </div>
     <div class="links">
-      <p><a href="http://backin.de/gumball/Bubblegum%20Sequencer.pdf">The course paper</a> (PDF)</p>
-      <p><a href="https://www.youtube.com/watch?v=ziIdjrR_MRs">The 2008 demo video</a></p>
-      <p><a href="http://backin.de/gumball/2008/">The original page</a>, kept as it was</p>
+      <p>
+        <a href="http://backin.de/gumball/Bubblegum%20Sequencer.pdf"
+          >The course paper</a
+        >
+        (PDF)
+      </p>
+      <p>
+        <a href="https://www.youtube.com/watch?v=ziIdjrR_MRs"
+          >The 2008 demo video</a
+        >
+      </p>
+      <p>
+        <a href="http://backin.de/gumball/2008/">The original page</a>, kept as
+        it was
+      </p>
     </div>
     <div>
-      <p class="eyebrow" style="margin-bottom: 10px;">Press</p>
+      <p class="eyebrow" style="margin-bottom: 10px">Press</p>
       <div class="press">
-        <a href="http://blog.makezine.com/archive/2008/01/bubblegum_sequencer_makin.html">MAKE</a>
-        <a href="https://www.engadget.com/2008/01/22/bubblegum-sequencer-music-never-sounded-so-sweet/">Engadget</a>
-        <a href="https://gizmodo.com/346390/bubblegum-drum-sequencer-goes-one-better-has-edible-parts">Gizmodo</a>
-        <a href="http://www.neatorama.com/2008/01/19/bubblegum-sequencer/">Neatorama</a>
-        <a href="http://www.spreeblick.com/2008/01/24/bubblegum-sequenzer/">Spreeblick</a>
+        <a
+          href="http://blog.makezine.com/archive/2008/01/bubblegum_sequencer_makin.html"
+          >MAKE</a
+        >
+        <a
+          href="https://www.engadget.com/2008/01/22/bubblegum-sequencer-music-never-sounded-so-sweet/"
+          >Engadget</a
+        >
+        <a
+          href="https://gizmodo.com/346390/bubblegum-drum-sequencer-goes-one-better-has-edible-parts"
+          >Gizmodo</a
+        >
+        <a href="http://www.neatorama.com/2008/01/19/bubblegum-sequencer/"
+          >Neatorama</a
+        >
+        <a href="http://www.spreeblick.com/2008/01/24/bubblegum-sequenzer/"
+          >Spreeblick</a
+        >
         <a href="http://backin.de/gumball/images/debug.pdf">De:Bug 123</a>
         <a href="http://backin.de/gumball/debug09.pdf">De:Bug 135</a>
       </div>
@@ -556,24 +973,38 @@ uv run play.py</pre>
   </section>
 
   <div class="strip">
-    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="pink"></i>
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+    ><i></i><i></i><i></i><i></i><i class="pink"></i>
     <span>end of the bar</span>
-    <button class="tap" type="button" aria-pressed="false" aria-label="play this bar once">&#9654;</button>
+    <button
+      class="tap"
+      type="button"
+      aria-pressed="false"
+      aria-label="play this bar once"
+    >
+      &#9654;
+    </button>
   </div>
 
   <footer>
     <p>bubblegum (at) backin.de</p>
-    <p>Source: <a href="https://github.com/thetable/bubblegumsequencer">github.com/thetable/bubblegumsequencer</a></p>
+    <p>
+      Source:
+      <a href="https://github.com/thetable/bubblegumsequencer"
+        >github.com/thetable/bubblegumsequencer</a
+      >
+    </p>
   </footer>
-
 </div>
 
 <script>
   // The sequencer above is the real thing in miniature: same four voices,
   // same 4 x 16 grid, same scheduling. Only the camera is missing.
   const COLOURS = ["pink", "yellow", "blue", "green"];
-  const ROWS = 4, COLS = 16;
-  const LOOKAHEAD = 0.1, TICK = 25;
+  const ROWS = 4,
+    COLS = 16;
+  const LOOKAHEAD = 0.1,
+    TICK = 25;
 
   // A pattern to open on, so the page at rest shows an instrument in use
   // rather than an empty board waiting to be filled.
@@ -598,7 +1029,10 @@ uv run play.py</pre>
         const at = now === null ? -1 : COLOURS.indexOf(now);
         pattern[r][c] = at + 1 >= COLOURS.length ? null : COLOURS[at + 1];
         paint();
-        if (pattern[r][c]) { start(); hit(pattern[r][c], audio.currentTime + 0.01); }
+        if (pattern[r][c]) {
+          start();
+          hit(pattern[r][c], audio.currentTime + 0.01);
+        }
       });
       gridEl.appendChild(b);
       cells.push(b);
@@ -608,18 +1042,25 @@ uv run play.py</pre>
   let playhead = -1;
   function paint() {
     for (const b of cells) {
-      const r = +b.dataset.row, c = +b.dataset.col;
-      b.className = "cell" + (pattern[r][c] ? " " + pattern[r][c] : "")
-                           + (c === playhead ? " col-now" : "");
+      const r = +b.dataset.row,
+        c = +b.dataset.col;
+      b.className =
+        "cell" +
+        (pattern[r][c] ? " " + pattern[r][c] : "") +
+        (c === playhead ? " col-now" : "");
     }
   }
   paint();
 
   // ---------------------------------------------------------------- sound
 
-  let audio = null, master = null;
+  let audio = null,
+    master = null;
   function start() {
-    if (audio) { audio.resume(); return; }
+    if (audio) {
+      audio.resume();
+      return;
+    }
     audio = new (window.AudioContext || window.webkitAudioContext)();
     master = audio.createGain();
     master.gain.value = 0.55;
@@ -640,34 +1081,48 @@ uv run play.py</pre>
     if (!audio) return;
     const g = audio.createGain();
     g.connect(master);
-    if (name === "pink") {                       // kick
+    if (name === "pink") {
+      // kick
       const o = audio.createOscillator();
       o.frequency.setValueAtTime(160, when);
       o.frequency.exponentialRampToValueAtTime(48, when + 0.11);
       g.gain.setValueAtTime(1, when);
       g.gain.exponentialRampToValueAtTime(0.001, when + 0.3);
-      o.connect(g); o.start(when); o.stop(when + 0.32);
-    } else if (name === "yellow") {              // snare
+      o.connect(g);
+      o.start(when);
+      o.stop(when + 0.32);
+    } else if (name === "yellow") {
+      // snare
       const n = noise(0.2);
       const f = audio.createBiquadFilter();
-      f.type = "highpass"; f.frequency.value = 1200;
+      f.type = "highpass";
+      f.frequency.value = 1200;
       g.gain.setValueAtTime(0.7, when);
       g.gain.exponentialRampToValueAtTime(0.001, when + 0.18);
-      n.connect(f); f.connect(g); n.start(when);
-    } else if (name === "blue") {                // closed hat
+      n.connect(f);
+      f.connect(g);
+      n.start(when);
+    } else if (name === "blue") {
+      // closed hat
       const n = noise(0.06);
       const f = audio.createBiquadFilter();
-      f.type = "highpass"; f.frequency.value = 7000;
+      f.type = "highpass";
+      f.frequency.value = 7000;
       g.gain.setValueAtTime(0.35, when);
       g.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
-      n.connect(f); f.connect(g); n.start(when);
-    } else {                                     // green, a woodblock tone
+      n.connect(f);
+      f.connect(g);
+      n.start(when);
+    } else {
+      // green, a woodblock tone
       const o = audio.createOscillator();
       o.type = "triangle";
       o.frequency.setValueAtTime(880, when);
       g.gain.setValueAtTime(0.5, when);
       g.gain.exponentialRampToValueAtTime(0.001, when + 0.12);
-      o.connect(g); o.start(when); o.stop(when + 0.14);
+      o.connect(g);
+      o.start(when);
+      o.stop(when + 0.14);
     }
   }
 
@@ -675,7 +1130,10 @@ uv run play.py</pre>
 
   // Scheduled ahead against the audio clock rather than fired from a timer,
   // because setInterval drifts and the ear hears it immediately.
-  let running = false, step = 0, nextAt = 0, timer = null;
+  let running = false,
+    step = 0,
+    nextAt = 0,
+    timer = null;
   let bpm = 104;
 
   const playBtn = document.getElementById("play");
@@ -694,12 +1152,16 @@ uv run play.py</pre>
         const colour = pattern[r][step];
         if (colour) hit(colour, nextAt);
       }
-      const at = step, when = nextAt;
-      setTimeout(() => {
-        if (!running) return;
-        playhead = at;
-        paint();
-      }, Math.max(0, (when - audio.currentTime) * 1000));
+      const at = step,
+        when = nextAt;
+      setTimeout(
+        () => {
+          if (!running) return;
+          playhead = at;
+          paint();
+        },
+        Math.max(0, (when - audio.currentTime) * 1000),
+      );
       nextAt += perStep;
       step = (step + 1) % COLS;
     }
@@ -732,7 +1194,10 @@ uv run play.py</pre>
     let busy = null;
     btn.addEventListener("click", () => {
       start();
-      if (busy) { busy.forEach(clearTimeout); busy = null; }
+      if (busy) {
+        busy.forEach(clearTimeout);
+        busy = null;
+      }
       btn.setAttribute("aria-pressed", "true");
       const perStep = 60 / bpm / 4;
       const at = audio.currentTime + 0.05;
@@ -740,20 +1205,31 @@ uv run play.py</pre>
       dots.forEach((dot, i) => {
         const colour = dot.className;
         if (colour) hit(colour, at + i * perStep);
-        busy.push(setTimeout(() => {
-          dot.style.transform = colour ? "scale(1.5)" : "scale(1.25)";
-          setTimeout(() => (dot.style.transform = ""), 110);
-        }, (at + i * perStep - audio.currentTime) * 1000));
+        busy.push(
+          setTimeout(
+            () => {
+              dot.style.transform = colour ? "scale(1.5)" : "scale(1.25)";
+              setTimeout(() => (dot.style.transform = ""), 110);
+            },
+            (at + i * perStep - audio.currentTime) * 1000,
+          ),
+        );
       });
-      busy.push(setTimeout(() => {
-        btn.setAttribute("aria-pressed", "false");
-        busy = null;
-      }, (at + dots.length * perStep - audio.currentTime) * 1000));
+      busy.push(
+        setTimeout(
+          () => {
+            btn.setAttribute("aria-pressed", "false");
+            busy = null;
+          },
+          (at + dots.length * perStep - audio.currentTime) * 1000,
+        ),
+      );
     });
   });
   addEventListener("keydown", (e) => {
     if (e.code !== "Space") return;
-    if (e.target.tagName === "INPUT" || e.target.classList.contains("cell")) return;
+    if (e.target.tagName === "INPUT" || e.target.classList.contains("cell"))
+      return;
     e.preventDefault();
     toggle();
   });
