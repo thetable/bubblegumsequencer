@@ -1,9 +1,8 @@
 # Captured frames and the pictures the tools draw on them. Regenerated every
 # run, tens of megabytes, and only ever interesting for the few minutes you
-# are looking at one. The website is not that: its images are content.
+# are looking at one.
 *.png
 *.csv
-!website/**
 
 # The printable tag sheet: make_tags.py produces it in a second.
 tags.pdf
@@ -24,11 +23,6 @@ prototypes.json
 # Built from github.com/jtfrey/uvc-util, which is not ours to vendor, and a
 # Mac-only binary besides. setup.py --tools builds it.
 uvc-util
-
-# The deploy script. It carries the server path and the account name, it is
-# a local convenience rather than part of the site, and it does not belong in
-# a public repo.
-website/deploy.sh
 
 # Working notes, kept on disk and out of a public repo. HANDOVER.md is the
 # original brief, PLAN.md the state, LOG.md the reasoning and measurements
