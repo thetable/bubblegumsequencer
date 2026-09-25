@@ -1,0 +1,153 @@
+<html>
+<head>
+	<link href="css/style.css" rel="stylesheet" type="text/css"/>
+	<title>Bubblegum Sequencer - Making Music With Candy</title>
+</head>
+
+<body>
+	<div id="title">
+		<span style="color:#f05">Bubblegum</span> Sequencer
+	</div>
+	<div id="subtitle">
+		Making Music With Candy
+	</div>
+
+	<div id="sidebar">
+		<h2>News</h2>
+		<!--p>
+			<strong>New:</strong> We're performing at the <a href="http://yuricdm.com/2008/03/19/futuristic-music-design-challenge/">Futuristic Design Challenge</a> at <a href="http://yurisnightbayarea.net/2008/events.php">Yuri's Night 2008</a> at Nasa Ames in Mountain View on April 12! Competition starts at 2pm. See us there!
+		</p-->
+		<p>
+			<a href="debug09.pdf">Two-page spread</a> on Bubblegum Sequencer and Popcuts in German magazine De:Bug.<br><br>
+			<a href="#code">Source code</a> released!<br><br>
+			<!-- <strong>New: </strong>German electronic music magazine De-Bug covers Bubblegum Sequencer <a href="images/debug.pdf">(PDF)</a><br><br> -->
+			<!-- See us at <a href="http://www.makezine.com/go/makerfaire">Maker Faire 2008</a>, May 3-4 in San Mateo!<br> -->
+			<!-- <a href="http://www.makezine.com/go/makerfaire">	<img src="http://makezine.com/images/makerfaire/badges/2008/mf_bayarea_150X60.jpg" alt="See me at Maker Faire!" width="150" height="60" border="0" /></a> -->
+		</p>
+			
+		<img src="images/sequencer1.jpg"><br>
+		<img src="images/sequencer2.jpg"><br>
+		<img src="images/sequencer3.jpg"><br>
+		<img src="images/sequencer4.jpg"><br>
+		<img src="images/sequencer6.jpg"><br> <br>
+	</div>
+	
+	<div id="content">
+		
+		
+		<h2>What is the Bubblegum Sequencer?</h2>
+		<p>The Bubblegum Sequencer is a physical <a href="http://en.wikipedia.org/wiki/Music_sequencer#Step_sequencers">step sequencer</a> that lets you create drumloops by arranging colored balls on a tangible surface. It generates MIDI events and can be used as an input device to control audio hardware and software. Finally, people can't claim anymore that electronic music isn't handmade. </p>
+			
+			
+		<p>Here's how it works: A grid of holes, consisting of several rows with 16 holes each is the canvas. On it, you arrange colored gumballs. The 16 columns represent the 16th-notes in a measure. Each color is mapped to a specific sample.  </p>
+
+		<p>Because the output is generated in the form of MIDI events, the Bubblegum Sequencer can be used to control any kind of audio hardware or software. </p>
+		
+		<p>If you'd like to know more about the Bubblegum Sequencer, read our <a href="Bubblegum Sequencer.pdf">course paper</a>. 
+		
+		<a name="demo"></a>
+		<h2>Demo</h2>
+		<p>Here's a video showing some of the Bubblegum Sequencer's current features:</p>
+		<p>
+			<object width="425" height="350"> <param name="movie" value="http://www.youtube.com/v/ziIdjrR_MRs"> </param> <embed src="http://www.youtube.com/v/ziIdjrR_MRs" type="application/x-shockwave-flash" width="425" height="350"> </embed> </object>
+		</p>
+		<p>(<a href="http://people.ischool.berkeley.edu/~hannes/gumball/BubblegumSequencer-low.mov">Download</a> video as .mov file)</p>
+		
+		<a name="how"></a>
+		<h2>How it's done</h2>
+		<p>
+			The Bubblegum Sequencer senses the position of the balls through a video camera mounted underneath the surface. The captured image is processed by a computer vision routine that computes the average color in each hole. The colors are quantized and mapped to notes. For each note, a MIDI event is generated and sent to the operating system's MIDI bus. 
+		</p>
+		<p>The computer vision software is written in Java and makes use of the <a href="http://rsb.info.nih.gov/ij/">ImageJ</a> image processing library. </p>
+		
+		<h2>Updates</h2>
+		<p>In addition to the original features shown in the video, we've implemented a few more: 
+			<ul>
+				<li><strong>Tempo tapping:</strong> Tap three or more times on a pressure-sensitive area on the side of the sequencer to set a new tempo for the playback loop. </li>
+				<li><strong>Visual feedback: </strong>The sequencer now sports a row of running LEDs to indicate the current position. We've also experimented with projecting animations of popping bubbles onto the surface to provide direct feedback which beats are currently played. </li>
+				<li><strong>Melody mode: </strong>Instead of just playing monophonic beats, we developed a mode in which the vertical position of the balls encodes the pitch of the sample played. To increase the range, two balls can be combined, totalling seven different possible notes on the blues scale. </li>
+				<li><strong>Voiceover mode: </strong>To make the sample mappings less reliant on computer-based UIs, we wrote a <a href="http://www.processing.org">Processing</a> application that lets you record voice samples for each color at playback time. You record by holding down the spacebar and speaking into a microphone. </li>
+					
+		
+		<a name="who"></a>
+		<h2>Who</h2>
+		<p>
+			The Bubblegum Sequencer is a project by <a href="http://www.backin.de">Hannes Hesse</a>, Andrew McDiarmid and Rosie Han. <br>
+				It was conceived and created in the course <a href="http://courses.ischool.berkeley.edu/i290-13/f07/">"Theory and Practice of Tangible User Interfaces"</a> at UC Berkeley's <a href="http://www.ischool.berkeley.edu">School of Information</a> in the Fall semester 2007.
+			
+		</p>
+		
+		<h2>Press</h2>
+		<p>
+			De-Bug Magazine Nr. 123 (2008) <a href="images/debug.pdf">(PDF)</a>; De-Bug Magazine Nr. 135 (2009) <a href="debug09.pdf">(PDF)</a><br>
+			<a href="http://kqed02.streamguys.us/anon.kqed/radio/tcrmag/2008/05/2008-05-02-tcrmag.mp3">KQED on the Bubblegum Sequencer going to Maker Faire</a> (about 8 minutes into the show)<br>
+			<a href="http://current.com/items/88931165_bubblegum_music">Video report on the Bubblegum Sequencer</a> on CurrentTV
+		</p>
+		<p>Select blogs: </p>
+		<p>
+			<a href="http://blog.makezine.com/archive/2008/01/bubblegum_sequencer_makin.html">MAKE: Blog</a><br>
+			<a href="http://www.engadget.com/2008/01/22/bubblegum-sequencer-music-never-sounded-so-sweet/">Engadget</a><br>
+			<a href="http://gizmodo.com/346390/bubblegum-drum-sequencer-goes-one-better-has-edible-parts">Gizmodo</a><br>
+			<a href="http://www.neatorama.com/2008/01/19/bubblegum-sequencer/">Neatorama</a><br>
+			<a href="http://www.de-bug.de/musiktechnik/archives/843.html">De-Bug Magazine</a><br>
+			<a href="http://www.spreeblick.com/2008/01/24/bubblegum-sequenzer/">Spreeblick</a><br>
+			<a href="http://theguide.latimes.com/blogs/soundboard/2008/01/30/bubblegum-pop/">LA Times: The Guide</a><br>
+			and <a href="http://blogsearch.google.com/blogsearch?q=bubblegum+sequencer">more...</a><br>
+		</p>
+		
+		
+		<a name="code"></a>
+		<h2>Software</h2>
+		<p>
+			I released a snapshot of the current software on <a href="http://code.google.com/p/bubblegumsequencer/">Google Code</a>. However, it's currently mostly undocumented and has a few platform and hardware dependencies. I can't really offer any qualified support at this point, so you'll probably need to hack around for a while to get it running. 
+		</p>
+		<p>
+			The software is Java-based and makes use of a couple of libraries (mostly ImageJ for Image processing and access to the pixel feed from the web cam). The part that grabs the image stream from the web cam is based on Wayne Rasband's <a href="http://rsbweb.nih.gov/ij/plugins/download/QuickTime_Capture.java">QuickTime Capture example</a>. 
+		</p>
+		<h2>Hardware</h2>
+		<p>
+			I currently use a Logitech QuickCam Pro, which you can probably get for about $60. I use a Mac (Intel, OS 10.5), but we've also had the software running on a Win XP machine as well as a Power PC-based Mac before. There are some platform-specific things you need to install, such as a MIDI driver for Mac (<a href="http://www.humatic.de/htools/mmj.htm">http://www.humatic.de/htools/mmj.htm</a>). 
+		</p>
+		
+		
+		
+		<a name="contact"></a>
+		<h2>Contact us</h2>
+		<p>If you would like to know more about the Bubblegum Sequencer, send us an <a href="mailto:bubblegum(at)backin.de">email</a>.
+		
+		<p>&nbsp;</p>
+		
+		<p>
+		<a title="Post to del.icio.us" href="http://del.icio.us/post?url=http://backin.de/gumball"><img src="images/delicious.png" class="socialbkmark" alt="Post to Del.icio.us"/>Post to del.icio.us</a><br>
+		<a title="Post to Digg" href="http://digg.com/submit?phase=2&url=http://backin.de/gumball"><img src="images/digg.png" class="socialbkmark" alt="Digg!" />Digg!</a><br>
+		<a title="Post to Reddit" href="http://reddit.com/submit?url=http://backin.de/gumball&title=The Gumball Sequencer - Making Music With Candy"><img src="images/reddit.png" class="socialbkmark" alt="Post to Reddit"/>Post to Reddit</a><br>
+		<a title="Share on Facebook" href="http://www.facebook.com/sharer.php?u=http://www.youtube.com/watch?v=ziIdjrR_MRs"><img src="images/facebook_icon.gif" class="socialbkmark" alt="Share on Facebook"/>Share on Facebook</a>
+		</p>
+<!--p>
+	Don't do business with <a href="http://backin.de/mujinga-moudjende.html">Mujinga Moudjendé</a>.
+</p-->
+<p>
+	
+</p>
+		<script type="text/javascript"><!--
+		google_ad_client = "pub-5743420079917310";
+		/* 728x90, created 11/10/09 */
+		google_ad_slot = "5047477425";
+		google_ad_width = 728;
+		google_ad_height = 90;
+		//-->
+		</script>
+		<script type="text/javascript"
+		src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+		</script>
+	</div>
+	
+	<script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+	</script>
+	<script type="text/javascript">
+	_uacct = "UA-340907-5";
+	urchinTracker();
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,110 @@
+	/* ######################################################################################################
+** # "Yet Another Multicolum Layout" (c) by Dirk Jesse (http://www.yaml.de) #############################
+** ######################################################################################################
+** 
+**  YAML Version: 2.5
+**  Dateiversion: 18.06.06  
+**  Datei       : basemod.css
+**  Funktion    : Basis-Modifikation für das Layout des YAML-Tutorials
+**
+**####### Farben #######
+* Beige: #E4DEB8
+* GrŸn: B1CD49
+*/
+
+
+@media all
+{
+
+/* Formatierung der Seite */
+
+body{
+	margin: 25px; 
+/*	background: #fff url(../img/body_navi_bottom.gif) left bottom no-repeat;*/
+}
+body.start{
+	margin: 25px; 
+	background: #fff;
+}
+#page_margins{ 
+	margin-left: 0px;
+ 	margin-right: 0px;
+}
+
+/* Formatierung der Kopfbereiches */
+#header1 { 
+	width: 204px;
+	height: 90px; 
+	background: #B1CD49;
+}
+#header2 { 
+	width: 720px;
+	margin-left: 212px;
+	padding-left: 16px;
+	height: 90px; background: #E4DEB8 url(../img/header_streifen.gif) left no-repeat;
+}
+#header2 img{float:left;}
+#logo {position:absolute; top: 52px; left: 770px; z-index: 10;}
+img.topnavi{margin-top:64px;}
+
+/* ######################################################################################################
+** ### Formatierung der Inhaltsspalten ##################################################################
+** ######################################################################################################
+*/
+#main { 
+	margin-top: 12px; 
+	padding: 0; 
+	background: url(../img/navi_bottom.gif) left bottom no-repeat;
+}
+
+/* linke Spalte und Teaser*/
+#col1 {	
+	width: 204px;
+ 	background: #336;
+}	
+#col1_content { 
+	margin: 0px;
+}
+
+/* Mittlere Spalte */
+#col3
+{
+  	margin-left: 212px; 
+   	margin-right: 0px; 
+}
+#col3_content { 
+	margin-top: 12px;
+	padding-top: 33px;
+	margin-left: 40px;  /*Abstand der Spalte zur Navigation */
+	width: 500px;
+}
+
+/* ######################################################################################################
+** ### Formatierung von Elementen von Spezialseiten #####################################################
+** ######################################################################################################
+*/
+#startpage{ 
+	width: 100%;
+	margin-left: 0px;
+ 	margin-right: 0px;
+	background: #E4DEB8;
+	padding-top: 207px;
+	padding-bottom: 200px;
+	text-align: center;
+	z-index: 8;
+}
+
+img.willkommen{
+	z-index: 10;
+}
+img.logo_construction{
+	position: absolute;
+	top: 470px;
+	right: 0px;
+}
+img.logo_start {
+	position: absolute;
+	top: 440px;
+	right: 0px;
+}
+} 
