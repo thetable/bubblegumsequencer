@@ -112,6 +112,7 @@ function start() {
   timer = setInterval(schedule, TICK);
   playButton.textContent = "Stop";
   playButton.classList.add("on");
+  keepAwake();
 }
 
 function stop() {
@@ -120,7 +121,44 @@ function stop() {
   document.querySelectorAll(".col-now").forEach((e) => e.classList.remove("col-now"));
   playButton.textContent = "Play";
   playButton.classList.remove("on");
+  keepAwake();
 }
+
+// ------------------------------------------------------------ staying awake
+
+// A Mac dims and then locks its screen after a few idle minutes, and watching
+// an instrument play itself counts as idle: the point of the thing is that
+// nobody is touching the keyboard. Screen Wake Lock is the browser's way of
+// saying otherwise.
+//
+// Held while playing or while full screen. Full screen matters on its own: a
+// board standing paused on a projector between two halves of a talk is
+// exactly when you least want the screen to go.
+//
+// The browser drops the lock whenever the page stops being visible. That is
+// not an error and cannot be prevented, so the only thing to do is take it
+// again when the page comes back.
+let awake = null;
+
+async function keepAwake() {
+  if (!(playing || document.fullscreenElement)) {
+    if (awake) { awake.release(); awake = null; }
+    return;
+  }
+  if (awake || document.visibilityState !== "visible") return;
+  try {
+    awake = await navigator.wakeLock.request("screen");
+    awake.addEventListener("release", () => { awake = null; });
+  } catch {
+    // Unsupported, or refused because the page is not visible. Either way the
+    // screen sleeps exactly as it would have without this, so there is
+    // nothing to recover from and nothing worth interrupting anyone over.
+    awake = null;
+  }
+}
+
+document.addEventListener("visibilitychange", keepAwake);
+document.addEventListener("fullscreenchange", keepAwake);
 
 // The playhead is drawn from a separate queue, because the scheduler runs
 // ahead of what you are hearing and lighting a column early looks wrong.
