@@ -31,23 +31,8 @@ TAG_DICT = cv2.aruco.DICT_APRILTAG_36h11
 BACKGROUND_SIGMA = 40
 
 
-def find_holes(gray, corners, pitch, sens):
-    """Every round mid-bright blob inside the board area.
-
-    Dividing by a heavily blurred copy removes the lens's vignetting and the
-    box's uneven lighting, so one ratio works from the middle of the board to
-    the corner. What survives is scale-free: a hole is brighter than the sheet
-    around it whatever the absolute level.
-
-    Only bright blobs, deliberately. Looking for dark ones too, so that an
-    empty hole could also be found as a void against a lit sheet, was tried
-    and made both cases worse: the dark sheet between the holes forms its own
-    blobs and they crowd out the real ones. Geometry is a property of the rig,
-    so it is calibrated once in ordinary room light and reused from warp.json.
-    """
-    g = gray.astype(np.float32)
-    background = cv2.GaussianBlur(g, (0, 0), BACKGROUND_SIGMA)
-    mask = ((g / (background + 1e-6)) > sens).astype(np.uint8) * 255
+def _round_blobs(mask, gray, corners, pitch):
+    """Round, same-sized things inside the board, from a thresholded mask."""
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((11, 11), np.uint8))
 
@@ -72,6 +57,40 @@ def find_holes(gray, corners, pitch, sens):
     margin = max(3, int(0.8 * pitch)) | 1
     inside = cv2.dilate(inside, np.ones((margin, margin), np.uint8))
     return [b for b in blobs if inside[int(b["y"]), int(b["x"])] > 0]
+
+
+def find_holes(gray, corners, pitch, sens, polarity=None):
+    """Every round hole-sized blob inside the board area.
+
+    Dividing by a heavily blurred copy removes the lens's vignetting and the
+    box's uneven lighting, so one ratio works from the middle of the board to
+    the corner. What survives is scale-free: a hole differs from the sheet
+    around it by the same factor wherever it is.
+
+    Which way it differs depends on the rig, and it inverted when the box was
+    built. In the open crate the sheet was unlit and the room shone down
+    through the holes, so a hole was the bright thing. Enclosed, with strips
+    lighting the sheet from below and a dim room above, the sheet is the
+    bright thing and a hole is a dark disc. Measured on the same board an hour
+    apart: 19 bright blobs one way, 39 dark the other.
+
+    So it tries both and keeps whichever finds more. That is not the
+    two-sided search that failed twice before, which thresholded once and took
+    bright and dark together, letting the sheet between the holes form its own
+    blobs and crowd out the real ones. These are two separate searches and
+    only the better one survives.
+    """
+    g = gray.astype(np.float32)
+    background = cv2.GaussianBlur(g, (0, 0), BACKGROUND_SIGMA)
+    ratio = g / (background + 1e-6)
+
+    tries = {"bright": ratio > sens, "dark": ratio < 1.0 / sens}
+    if polarity in tries:
+        tries = {polarity: tries[polarity]}
+    found = {k: _round_blobs(m.astype(np.uint8) * 255, gray, corners, pitch)
+             for k, m in tries.items()}
+    best = max(found, key=lambda k: len(found[k]))
+    return found[best]
 
 
 def group_rows(blobs, corners):
@@ -312,6 +331,90 @@ def seed_labels(blobs, label):
     return u, v, x, y, complete
 
 
+def bend(u, k):
+    """Push column positions out towards the edges, by k.
+
+    The four clicks give a perspective map, and a perspective map cannot bend:
+    it spaces the columns evenly. This lens does not. Its pitch is a hump,
+    widest mid-board and tightest at both ends, near enough two to one, so a
+    blob near the edge sits a column or more from where the flat map puts it.
+
+    One number describes that, and it is cheaper to search for it than to
+    derive it: a cubic term, tried across a range, keeping whichever value
+    makes the holes fall closest to whole columns.
+    """
+    t = np.asarray(u, float) / (COLS - 1) * 2 - 1
+    return ((t + k * t ** 3) / (1 + k) + 1) / 2 * (COLS - 1)
+
+
+def seed_from_corners(blobs, corners, k=0.0):
+    """A column and row for every blob, read off the four clicked corners.
+
+    Needed because a complete row is a lot to ask. It wants all sixteen holes
+    of one row detected at once, and in a finished box, where the sheet and
+    the holes are lit from opposite sides, most frames never manage it: 43 of
+    64 found and not one row whole.
+
+    The clicks are the ground truth that is always available. They say where
+    cells 0, 15, 63 and 48 are, and a perspective map through them puts every
+    other blob roughly in its place. Roughly is enough. The fit that follows
+    re-reads its labels from its own prediction, four times over, so an edge
+    hole that started one column out is pulled back as soon as the warp has a
+    shape. What made this fail before was trusting the result; it is checked
+    now, twice, and a wrong answer is refused rather than saved.
+    """
+    board = np.float32([[0, 0], [COLS - 1, 0], [COLS - 1, ROWS - 1], [0, ROWS - 1]])
+    flat = cv2.perspectiveTransform(
+        np.float32([[[b["x"], b["y"]] for b in blobs]]),
+        cv2.getPerspectiveTransform(np.float32(corners), board))[0]
+    flat = np.column_stack([bend(flat[:, 0], k), flat[:, 1]])
+
+    # One blob per cell: two claiming the same one means at least one is wrong,
+    # so keep whichever sits closer to the middle of it.
+    best = {}
+    for i, (u, v) in enumerate(flat):
+        col = int(round(min(max(u, 0.0), COLS - 1.0)))
+        row = int(round(min(max(v, 0.0), ROWS - 1.0)))
+        off = abs(u - col) + abs(v - row)
+        cell = row * COLS + col
+        if cell not in best or off < best[cell][0]:
+            best[cell] = (off, i)
+    return ([c % COLS for c in best], [c // COLS for c in best],
+            [blobs[i]["x"] for _, i in best.values()],
+            [blobs[i]["y"] for _, i in best.values()])
+
+
+def best_seed(blobs, corners):
+    """Label the blobs from the clicks, searching for how much the lens bends.
+
+    Scored on the thing that cannot be faked: a fit to the right labels leaves
+    small residuals AND comes out with the pitch humped the correct way. A fit
+    to the wrong ones can manage the first but not the second, because holes
+    it has shuffled one column along force the middle of the board narrow.
+    """
+    best = ([], [], [], [], 0.0, np.inf)
+    for k in np.arange(-0.4, 0.81, 0.05):
+        u, v, x, y = seed_from_corners(blobs, corners, k)
+        if len(u) < 12 or len(set(v)) < 2:
+            continue
+        cx, cy = fit_warp(u, v, x, y, 1)
+        grid = warp_basis(np.tile(np.arange(COLS), ROWS),
+                          np.repeat(np.arange(ROWS), COLS), 1)
+        px = grid @ cx
+        middle = np.diff(px[COLS // 2 - 2:COLS // 2 + 2]).mean()
+        edges = max(np.diff(px[:3]).mean(), np.diff(px[-3:]).mean())
+        if middle <= edges:                    # dished: the labels are wrong
+            continue
+        fitted = warp_basis(u, v, 1)
+        err = float(np.median(np.hypot(fitted @ cx - np.asarray(x),
+                                       fitted @ cy - np.asarray(y))))
+        # Prefer the fit that explains the most holes, then the tightest one.
+        score = err / max(len(u), 1) ** 0.5
+        if score < best[5]:
+            best = (u, v, x, y, float(k), score)
+    return best[:5]
+
+
 def load_warp():
     if not os.path.exists(WARP_FILE):
         return None
@@ -325,7 +428,7 @@ def save_warp(cx, cy, v_degree):
         json.dump({"cx": list(cx), "cy": list(cy), "v_degree": v_degree}, fh)
 
 
-def locate_cells(blobs, corners, pitch):
+def locate_cells(blobs, corners, pitch, allow_cached=True):
     """All 64 centres, or None if the board could not be read confidently.
 
     This is the hole-fitting route, used when the tags cannot place the grid
@@ -348,8 +451,29 @@ def locate_cells(blobs, corners, pitch):
         complete = []
 
     fitting = len(complete) >= 2
+    if not fitting and blobs:
+        u, v, x, y, k = best_seed(blobs, corners)
+        fitting = len(u) >= 12          # the warp has twelve coefficients
+        if fitting:
+            print(f"  No row came up whole, so the four clicks place the "
+                  f"columns instead: {len(u)} holes labelled, bend {k:+.2f}.")
     if not fitting:
-        saved = load_warp()
+        # Reusing the cached warp is only honest when nothing has moved. Asked
+        # to recalibrate, the caller is saying something has, so falling back
+        # to the old geometry produces a reference that looks freshly made and
+        # is a row out. That failure cost an afternoon: the file dates said
+        # recalibrated, the grid said otherwise.
+        saved = load_warp() if allow_cached else None
+        if saved is None and not allow_cached:
+            print(f"  Need two rows with all 16 holes to anchor the columns; "
+                  f"got {len(complete)}.")
+            print(f"  Not falling back to {WARP_FILE}: you asked to "
+                  "recalibrate, so it describes a rig that no longer exists.")
+            print("\n  Holes show when they differ from the sheet, either way "
+                  "round. Both lit at once is the worst case, and that is")
+            print("  what this frame looks like. Try the strips OFF with a "
+                  "lamp above: the sheet goes black and every hole lights up.")
+            return None, None
         if saved is None:
             print("  Need two rows with all 16 holes to anchor the columns; "
                   f"got {len(complete)}, and no {WARP_FILE} to fall back on.")
@@ -410,7 +534,23 @@ def locate_cells(blobs, corners, pitch):
         print("  That is the wrong way round, so the columns are misassigned. "
               "Stopping.")
         return None, None
+    # The clicks are the one thing measured by hand, so the fit has to agree
+    # with them. A grid that has locked onto the wrong columns lands a whole
+    # cell off here while fitting its own detections beautifully, which is
+    # exactly how the earlier attempt at this went wrong unnoticed.
     if fitting:
+        want = np.float32(corners)
+        ends = [0, COLS - 1, COLS * ROWS - 1, COLS * (ROWS - 1)]
+        got = np.float32([[px[c], py[c]] for c in ends])
+        off = np.hypot(*(got - want).T)
+        print(f"  Corners land {off.min():.0f} to {off.max():.0f} px from "
+              "where you clicked.")
+        if off.max() > 0.6 * pitch:
+            print(f"  More than {0.6 * pitch:.0f} px out, so the grid is not "
+                  "the one you pointed at. Stopping.")
+            print("  Usually a corner click that missed its hole, or a board "
+                  "that moved between the clicks and now.")
+            return None, None
         save_warp(cx, cy, v_degree)
 
     # Sample at the fitted position, not the blob's own centroid. A dim hole is

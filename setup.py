@@ -20,15 +20,41 @@ import argparse
 import json
 import os
 import sys
+import time
 
 import cv2
 import numpy as np
 
 from board import camera, colour, files, framing, geometry
 from board.reader import read_board
-from board.view import draw
+from board.view import TINTS, draw
 
 CORNERS_FILE = "corners.json"
+# A warp fitted to a handful of blobs still returns 64 cells and still reports
+# a small residual, because it fits its handful nicely. What separates a real
+# calibration from that is not how many holes were found but whether they are
+# spread over the board: twelve clustered in the middle say nothing about the
+# edges, where the barrel distortion actually lives. The warp has twelve
+# coefficients, so sixteen points is the arithmetic floor; coverage is the
+# test that matters.
+ENOUGH_HOLES = 16
+COMFORTABLE_HOLES = 40
+ACROSS_BANDS, DOWN_BANDS = 8, 4       # the board, split up for the coverage test
+NEED_ACROSS, NEED_DOWN = 6, 3
+
+
+def coverage(blobs, corners):
+    """Which parts of the board the detected holes actually speak for."""
+    quad = np.float32(corners)
+    unit = np.float32([[0, 0], [1, 0], [1, 1], [0, 1]])
+    flat = cv2.perspectiveTransform(
+        np.float32([[[b["x"], b["y"]] for b in blobs]]),
+        cv2.getPerspectiveTransform(quad, unit))[0]
+    across = {min(int(u * ACROSS_BANDS), ACROSS_BANDS - 1)
+              for u, v in flat if -0.2 < u < 1.2 and -0.2 < v < 1.2}
+    down = {min(int(v * DOWN_BANDS), DOWN_BANDS - 1)
+            for u, v in flat if -0.2 < u < 1.2 and -0.2 < v < 1.2}
+    return len(across), len(down)
 DEFAULT_COLOURS = ("pink", "yellow", "blue", "green")
 CORNER_PROMPTS = [
     "top-left hole (row 0, col 0)",
@@ -242,8 +268,11 @@ def step_exposure(args):
 def step_geometry(args):
     """Fit the grid to the holes, then record it against the tags."""
     print("\n2. GEOMETRY")
-    print("   Room lights ON for this one: it has to see the empty holes, and")
-    print("   an empty hole is only visible because the room shines through it.")
+    print("   Take the balls out. The four corner clicks place the grid, so")
+    print("   the holes only have to be visible enough to fit a shape to, not")
+    print("   all of them: thirty-odd of the sixty-four is plenty.")
+    print("   If it says too few, more light on one side than the other helps,")
+    print("   either way round. It is the two being equal that hides them.")
     input("   Press return when ready. ")
 
     frame = camera.single_frame(args)
@@ -262,7 +291,12 @@ def step_geometry(args):
     corners = None
     if os.path.exists(CORNERS_FILE) and not args.reclick:
         corners = json.load(open(CORNERS_FILE))
-        print(f"   Using the corners in {CORNERS_FILE}. --reclick to redo them.")
+        days = (time.time() - os.path.getmtime(CORNERS_FILE)) / 86400
+        old = f", clicked {days:.0f} days ago" if days >= 1 else ""
+        print(f"   Using the corners in {CORNERS_FILE}{old}. --reclick to redo.")
+        if days >= 1:
+            print("   If the rig has been rebuilt since, they are the old rig's"
+                  " and --reclick is what you want.")
     else:
         print("   Click the four corner holes, in the order it asks.")
         corners = click_corners(frame)
@@ -273,8 +307,32 @@ def step_geometry(args):
     pitch = float(np.linalg.norm(np.float32(corners[1]) - np.float32(corners[0]))
                   / (geometry.COLS - 1))
     blobs = geometry.find_holes(gray, corners, pitch, args.sens)
-    print(f"   Found {len(blobs)} holes of {geometry.COLS * geometry.ROWS}.")
-    cells, residual = geometry.locate_cells(blobs, corners, pitch)
+    total = geometry.COLS * geometry.ROWS
+    print(f"   Found {len(blobs)} holes of {total}.")
+
+    # The failure this guards against does not look like a failure. A warp
+    # fitted to a dozen blobs still returns 64 cells, still saves, still
+    # reports a small residual, because it fits its handful of points nicely.
+    # You find out when the grid sits half a hole out and nothing explains it.
+    across, down = coverage(blobs, corners) if blobs else (0, 0)
+    print(f"   They cover {across} of {ACROSS_BANDS} of the board across "
+          f"and {down} of {DOWN_BANDS} down.")
+    if (len(blobs) < ENOUGH_HOLES or across < NEED_ACROSS or down < NEED_DOWN):
+        print("\n   Too little of the board to fit a grid to. Refusing to save.")
+        print("   A warp fitted to one patch still reports a small error,")
+        print("   because it fits that patch nicely, and then sits half a hole")
+        print("   out everywhere else. That is the failure this is avoiding.")
+        print("\n   Holes show up when they differ from the sheet around them,")
+        print("   either way round: room light shining down through them, or")
+        print("   the strips lighting the sheet and leaving them dark. Add")
+        print("   light above, or take the balls out, and run this again.")
+        return False
+    if len(blobs) < COMFORTABLE_HOLES:
+        print("   Thin, but spread out enough to fit. More light from above")
+        print("   would fill in the rest.")
+
+    cells, residual = geometry.locate_cells(blobs, corners, pitch,
+                                            allow_cached=not args.reclick)
     if cells is None:
         return False
     print(f"   Warp fits them to {np.median(residual):.1f} px median, "
@@ -303,6 +361,13 @@ def step_colours(args):
     queue = [c.strip() for c in args.colour_names.split(",")]
     print("   " + ", ".join(queue) + ", one at a time. The window says what to do.")
 
+    # Whatever these colours used to be, they are being replaced. Clearing
+    # them first is what makes "this one is the same as that one" mean
+    # something: the comparison is then only against colours taught just now.
+    gone = colour.forget(queue)
+    if gone:
+        print(f"   Forgetting the old {', '.join(gone)} first.")
+
     cap = camera.open_camera(args)
     if cap is None:
         return False
@@ -328,7 +393,8 @@ def step_colours(args):
                   f"{len(queue)} to go   s skip this colour   q give up"]
         view = draw(frame, cells, tags, note, "nothing", drift,
                     not args.no_mirror, banner,
-                    {c["idx"] for c in kept}, {c["idx"] for c in strays})
+                    {c["idx"] for c in kept}, {c["idx"] for c in strays},
+                    TINTS.get(queue[0].lower()))
         scale = args.display_width / view.shape[1]
         cv2.imshow(win, cv2.resize(view, None, fx=scale, fy=scale))
 

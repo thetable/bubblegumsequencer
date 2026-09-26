@@ -41,6 +41,7 @@ TRIM_DISTANCE = 3.0     # how many of those a colour may span
 # clean, so this is the middle of that.
 MAX_DISTANCE = 3.1      # spreads away from a prototype before we disown it
 MARGIN = 1.4            # how much closer the winner must be than the runner-up
+TOO_ALIKE = 8.0         # Lab units below which two taught colours are the same
 
 # Shape, for when colour has stopped being enough. In afternoon sun the room
 # comes down through the empty holes hard enough that an empty reads L 48
@@ -78,6 +79,28 @@ def load_prototypes():
         return {}
     with open(PROTOTYPE_FILE) as fh:
         return json.load(fh)
+
+
+def save_prototypes(protos):
+    with open(PROTOTYPE_FILE, "w") as fh:
+        json.dump(protos, fh, indent=1)
+
+
+def forget(names):
+    """Drop these colours, before teaching them again.
+
+    A re-teach happens because the stored values are wrong, so leaving them in
+    place means the first colour taught is measured against the very numbers
+    it is replacing. That is not hypothetical: a stale green sitting on a
+    neutral grey refused a perfectly good blue for being 3 Lab units from it.
+    """
+    protos = load_prototypes()
+    gone = [n for n in names if n in protos]
+    for n in gone:
+        protos.pop(n)
+    if gone:
+        save_prototypes(protos)
+    return gone
 
 
 def split_board(cells):
@@ -152,10 +175,29 @@ def teach(cells, name):
         return None
 
     protos = load_prototypes()
-    protos[name] = summarise(kept)
+    fresh = summarise(kept)
+
+    # Two colours landing on the same point is not a close call, it is a sign
+    # the sampler was not looking at balls at all. Taught against a grid that
+    # was a row out, every colour came back the same neutral grey, and the
+    # classifier then called the whole board empty: with the prototypes on top
+    # of each other no winner can ever be MARGIN closer than the runner up.
+    # Nothing in the output said so, which is what made it expensive.
+    for other, was in protos.items():
+        if other in (name, "empty"):
+            continue
+        apart = np.hypot(fresh["a"] - was["a"], fresh["b"] - was["b"])
+        if apart < TOO_ALIKE:
+            print(f"  {name} came out {apart:.0f} Lab units from {other}, "
+                  f"which is no distance at all.")
+            print("  Refusing to save it. Taught colours sit tens apart; this")
+            print("  close means the cells were not on the balls. Check the "
+                  "grid in probe.py before teaching again.")
+            return None
+
+    protos[name] = fresh
     protos["empty"] = summarise(dark)
-    with open(PROTOTYPE_FILE, "w") as fh:
-        json.dump(protos, fh, indent=1)
+    save_prototypes(protos)
     p = protos[name]
     print(f"  Taught {name} from {len(kept)} balls: "
           f"L {p['L']:.0f} a {p['a']:.0f} b {p['b']:.0f}, "

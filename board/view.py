@@ -10,9 +10,21 @@ import numpy as np
 
 FILLS = ("nothing", "colour", "brightness")
 
+# Roughly what each ball looks like, for tinting the line that asks for it.
+# Teaching means reading one instruction and then hunting through a bag, and
+# the colour is quicker to recognise than the word. Display only: nothing
+# decides anything from these, and a name that is not here just stays yellow.
+TINTS = {
+    "pink": (150, 120, 255),
+    "yellow": (60, 220, 245),
+    "blue": (235, 190, 130),
+    "green": (140, 220, 150),
+    "orange": (70, 160, 250),
+}
+
 
 def draw(frame, cells, tags, note, fill, drift, mirror=True,
-         banner=None, highlight=(), ignored=()):
+         banner=None, highlight=(), ignored=(), tint=None):
     """Mirrored by default, because the camera is under the sheet.
 
     Looking up from below reverses left and right against the board you are
@@ -61,9 +73,15 @@ def draw(frame, cells, tags, note, fill, drift, mirror=True,
         board = out.shape
         cv2.rectangle(out, (0, board[0] - 120), (board[1], board[0]), (0, 0, 0), -1)
         for i, line in enumerate(banner):
-            cv2.putText(out, line, (24, board[0] - 78 + i * 38),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.0 if i == 0 else 0.7,
-                        (0, 255, 255) if i == 0 else (230, 230, 230),
+            at = (24, board[0] - 78 + i * 38)
+            size = 1.0 if i == 0 else 0.7
+            ink = (tint or (0, 255, 255)) if i == 0 else (230, 230, 230)
+            # A pale ball colour needs the dark outline to stay readable over
+            # a lit sheet; the grey lines never did and still do not.
+            if i == 0:
+                cv2.putText(out, line, at, cv2.FONT_HERSHEY_SIMPLEX, size,
+                            (0, 0, 0), 5, cv2.LINE_AA)
+            cv2.putText(out, line, at, cv2.FONT_HERSHEY_SIMPLEX, size, ink,
                         2 if i == 0 else 1, cv2.LINE_AA)
 
     lines = [note]
