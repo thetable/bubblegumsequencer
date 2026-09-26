@@ -21,7 +21,6 @@ import cv2
 import numpy as np
 
 CAMERA_FILE = "camera.json"
-EXPOSURE_FILE = "exposure.json"      # older, read if camera.json is absent
 
 # The camera's own exposure-time-abs control runs 1 to 5000 and auto picks about
 # 157, which blows the balls out. These are the settings worth trying, spaced
@@ -133,9 +132,6 @@ def settings():
     if os.path.exists(CAMERA_FILE):
         with open(CAMERA_FILE) as fh:
             return json.load(fh)
-    if os.path.exists(EXPOSURE_FILE):
-        with open(EXPOSURE_FILE) as fh:
-            return {"exposure": json.load(fh)["exposure"]}
     return {}
 
 
