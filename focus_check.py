@@ -22,7 +22,7 @@ import time
 import cv2
 import numpy as np
 
-from board import files
+from board import camera, files
 
 PROBE = 96  # side of the square focus probe, in source pixels
 
@@ -34,6 +34,7 @@ def find_cameras(max_index=4):
         cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
         if cap.isOpened():
             ok, frame = cap.read()
+            frame = camera.orient(frame)
             if ok and frame is not None:
                 h, w = frame.shape[:2]
                 found.append((i, w, h))
@@ -122,6 +123,7 @@ def main():
         return 1
 
     ok, frame = cap.read()
+    frame = camera.orient(frame)
     if not ok or frame is None:
         print("Opened the device but got no frame.")
         return 1
@@ -152,6 +154,7 @@ def main():
 
     while True:
         ok, frame = cap.read()
+        frame = camera.orient(frame)
         if not ok or frame is None:
             print("Dropped frame, stopping.")
             break

@@ -152,6 +152,8 @@ def preflight(args, expected):
 
     taught = sorted(k for k in colour.load_prototypes() if k != "empty")
     exposure = camera.settings().get("exposure", "auto")
+    if camera.rotation():
+        print("  mounting turned end for end, frames rotated on capture")
     which = seen.get(args.uvc_index, "unknown") if seen else "not checked"
     print(f"  camera   {which}, exposure pinned at {exposure}")
     print(f"  colours  {', '.join(taught)}")
@@ -171,6 +173,7 @@ def watch(board, cap, args, stop):
     misses = 0
     while not stop.is_set():
         ok, frame = cap.read()
+        frame = camera.orient(frame)
         if not ok:
             # A camera that has gone away reads false forever. Say so, rather
             # than quietly holding yesterday's pattern, and keep trying to get
@@ -308,10 +311,23 @@ def main():
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--open", action="store_true",
                     help="open the browser as well, for Bubblegum.command")
+    ap.add_argument("--rotate-180", action="store_true",
+                    help="the camera is bolted in end for end, cable out the "
+                         "front. Written to camera.json: it is a fact about "
+                         "the rig, not something to retype")
+    ap.add_argument("--no-rotate", action="store_true",
+                    help="undo --rotate-180")
     ap.add_argument("--no-flip", action="store_true",
                     help="send the camera's column order instead of the "
                          "player's, which are mirror images of each other")
     args = ap.parse_args()
+    # Recorded rather than applied to this run alone, so setup.py and probe.py
+    # see the same board as the instrument does. Every tool turns the frame at
+    # the moment of capture, so nothing downstream knows or cares.
+    if args.rotate_180 or args.no_rotate:
+        turn = 0 if args.no_rotate else 180
+        camera.remember(rotate=turn)
+        print(f"  camera.json: rotation {turn} degrees")
     expected = camera.resolve(args)
 
     cap = preflight(args, expected)

@@ -234,12 +234,34 @@ def open_camera(args):
     return cap
 
 
+def rotation():
+    """Half a turn, or none. How the camera ended up bolted in."""
+    return 180 if int(settings().get("rotate", 0)) == 180 else 0
+
+
+def orient(frame):
+    """The frame the way the rig is actually mounted.
+
+    Done here, at the moment of capture, rather than by turning the pattern
+    round at the far end. Everything downstream then works on a picture taken
+    by a camera the right way up: the warp, the tags, the sample ellipses, the
+    pipeline pictures and the debug window all stay as they were, and there is
+    one fact about the rig instead of a correction in every tool.
+
+    Half a turn reverses both axes at once, which is why it is one switch and
+    not two. It is not a vertical mirror; no mounting produces one of those.
+    """
+    if frame is None or rotation() != 180:
+        return frame
+    return cv2.rotate(frame, cv2.ROTATE_180)
+
+
 def grab(cap, n=8):
     """Throw away a few frames so the sensor has settled before we look."""
     ok, frame = False, None
     for _ in range(n):
         ok, frame = cap.read()
-    return frame if ok else None
+    return orient(frame) if ok else None
 
 
 def set_exposure(index, value):

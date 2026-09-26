@@ -107,6 +107,7 @@ def step_centre(args):
     best = None
     while True:
         ok, frame = cap.read()
+        frame = camera.orient(frame)
         if not ok:
             break
         cells, tags, note, _ = read_board(frame)
@@ -313,6 +314,7 @@ def step_colours(args):
     cv2.namedWindow(win)
     while queue:
         ok, frame = cap.read()
+        frame = camera.orient(frame)
         if not ok:
             break
         cells, tags, note, drift = read_board(frame)

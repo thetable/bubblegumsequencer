@@ -199,6 +199,7 @@ def main():
     while True:
         if not frozen:
             ok, frame = cap.read()
+            frame = camera.orient(frame)
             if not ok:
                 break
             frames += 1
