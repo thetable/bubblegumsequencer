@@ -246,12 +246,106 @@ def accumulate_reference(gray, cells, H, sens):
     return updated, int((rows[:, 4] > 1).sum())
 
 
+def bend_map(src, dst, degree=3):
+    """A map from one view of the board to another, allowed to bend.
+
+    A homography cannot. It is a flat projective map, and this lens runs near
+    two to one from the middle of the board to the edge, so moving the camera
+    changes the barrel the board sits in and a homography cannot follow it.
+    Cubic across the frame, linear down it, which is the same shape the cell
+    warp uses and for the same reason.
+
+    Fitted in normalised source coordinates so the conditioning does not
+    depend on where in the frame the board happens to be.
+    """
+    src = np.asarray(src, float)
+    lo, hi = src.min(axis=0), src.max(axis=0)
+    span = np.maximum(hi - lo, 1.0)
+
+    def basis(p):
+        t = (np.asarray(p, float) - lo) / span * 2 - 1
+        return np.stack([t[:, 0] ** i * t[:, 1] ** j
+                         for j in range(2) for i in range(degree + 1)], axis=1)
+
+    B = basis(src)
+    if len(src) < B.shape[1] + 2:
+        return None
+    cx, _, rank, _ = np.linalg.lstsq(B, dst[:, 0], rcond=None)
+    if rank < B.shape[1]:
+        return None                        # not enough spread to pin it down
+    cy = np.linalg.lstsq(B, dst[:, 1], rcond=None)[0]
+    return lambda p: np.stack([basis(p) @ cx, basis(p) @ cy], axis=1)
+
+
+def spread_enough(tags, shared):
+    """How many distinct places across the frame the tags actually sit.
+
+    Four tags in the corners sit at two, and two cannot constrain a cubic. It
+    is the spread that matters, not the count.
+    """
+    xs = sorted(float(np.asarray(tags[i]).mean(axis=0)[0]) for i in shared)
+    groups = 1
+    for a, b in zip(xs, xs[1:]):
+        if b - a > 80.0:
+            groups += 1
+    return groups
+
+
+def _flat_map(src, dst):
+    H, _ = cv2.findHomography(np.float32(src), np.float32(dst), cv2.RANSAC, 3.0)
+    if H is None:
+        return None
+    return lambda p: cv2.perspectiveTransform(
+        np.float32([np.asarray(p, np.float32)]), H)[0], H
+
+
+def better_map(src, dst, groups):
+    """A bending map, but only if it earns it against a flat one.
+
+    Bending is not automatically better. Fitted to tags in two rows it is
+    linear down the frame, so it cannot follow a vertical bend, and on a
+    synthetic case with a strong one it came out worse than the homography it
+    replaced: perfect at the tags, 66 px out at the cells against the flat
+    map's 50. Fitting the tags beautifully is exactly what a model does when
+    it has the wrong shape.
+
+    So each is scored on tags it has not seen. Leave one out, fit, measure
+    against that tag's four corners, and keep whichever wins. With ten tags
+    that is twenty small fits and costs nothing worth measuring.
+    """
+    flat = _flat_map(src, dst)
+    if groups < 4:
+        return flat
+    n = len(src) // 4                         # four corners to a tag
+    if n < 5:
+        return flat
+
+    def held_out(make):
+        total = 0.0
+        for k in range(n):
+            keep = np.ones(len(src), bool)
+            keep[k * 4:(k + 1) * 4] = False
+            m = make(src[keep], dst[keep])
+            if m is None:
+                return np.inf
+            m = m[0] if isinstance(m, tuple) else m
+            total += float(np.linalg.norm(m(src[~keep]) - dst[~keep], axis=1).mean())
+        return total / n
+
+    bend_err = held_out(bend_map)
+    flat_err = held_out(_flat_map)
+    if bend_err < flat_err:
+        return bend_map(src, dst), None
+    return flat
+
+
 def cells_from_tags(tags):
     """Place all 64 cells by moving the stored grid onto the tags seen now.
 
-    Three tags is enough, which matters because one of the four is usually the
-    marginal one. Four is better: the homography is then over-determined and
-    the fit reports how well it agrees.
+    Three tags is enough to do it flatly, which matters because one is usually
+    the marginal one. Five or more spread across the frame is enough to do it
+    properly, with a map that can bend, and then the camera may be moved as
+    well as the board.
     """
     ref_tags, ref_cells = load_reference()
     if ref_tags is None:
@@ -262,23 +356,20 @@ def cells_from_tags(tags):
 
     src = np.vstack([ref_tags[i] for i in shared])
     dst = np.vstack([tags[i] for i in shared])
-    H, _ = cv2.findHomography(src, dst, cv2.RANSAC, 3.0)
-    if H is None:
+
+    chosen = better_map(src, dst, spread_enough(tags, shared))
+    if chosen is None:
         return None, None
-    moved = cv2.perspectiveTransform(
-        np.float32([ref_cells[:, :2]]), H)[0]
+    move, H = chosen
 
-    # Carry the sample ellipses across too, scaled by however much the
-    # homography stretches the image at each cell.
-    nudged = cv2.perspectiveTransform(
-        np.float32([ref_cells[:, :2] + [1.0, 0.0]]), H)[0]
-    raised = cv2.perspectiveTransform(
-        np.float32([ref_cells[:, :2] + [0.0, 1.0]]), H)[0]
-    sx = np.linalg.norm(nudged - moved, axis=1)
-    sy = np.linalg.norm(raised - moved, axis=1)
+    here = np.asarray(ref_cells[:, :2], float)
+    moved = move(here)
+    # Carry the sample ellipses across too, scaled by however much the map
+    # stretches the image at each cell.
+    sx = np.linalg.norm(move(here + [1.0, 0.0]) - moved, axis=1)
+    sy = np.linalg.norm(move(here + [0.0, 1.0]) - moved, axis=1)
 
-    fit = float(np.median(np.linalg.norm(
-        cv2.perspectiveTransform(np.float32([src]), H)[0] - dst, axis=1)))
+    fit = float(np.median(np.linalg.norm(move(src) - dst, axis=1)))
     cells = [{"idx": i, "row": i // COLS, "col": i % COLS,
               "x": float(moved[i][0]), "y": float(moved[i][1]),
               "rx": max(4, int(ref_cells[i][2] * sx[i])),
