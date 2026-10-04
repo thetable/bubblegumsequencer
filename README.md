@@ -52,9 +52,13 @@ axis on this module images at pixel 841 of 1920, so a camera centred under the
 board sits 119 px off-centre in the frame: 8 px of clearance at one end and 234
 at the other. The window shows two crosses; slide the camera until they meet.
 
-**2. Print and stick on the tags.** Four AprilTags, 25 mm, two above the grid
-and two below, on the underside of the sheet facing the camera. Print at 100%
-and check the ruler on the sheet before cutting.
+**2. Print and stick on the tag strips.** Two strips of five AprilTags, 22 mm,
+one above the grid and one below, on the underside of the sheet facing the
+camera. Print at 100% and check the ruler on the sheet before cutting. The
+strips do not have to be placed accurately, only straight and clear of the
+holes: where each tag really landed is measured once, during calibration.
+Each strip says which edge it goes on, read from the side you are sticking it
+to, which is also the side that tells you which way to put the board down.
 
 ```sh
 uv run make_tags.py          # writes captures/tags.pdf
@@ -196,7 +200,7 @@ happily and shows you your face. `--index` and `--uvc-index` still override
 it. The two are different numberings, so they can disagree: OpenCV counts the
 cameras AVFoundation offers, uvc-util counts the ones on the USB bus.
 
-## Moving it to another Mac
+## Moving it to another computer
 
 There is no download-and-play version of this, because half the instrument is
 a physical board. What there is: a clone, an `install uv` line, and the same
@@ -205,15 +209,60 @@ guided walk you ran the first time.
 ```sh
 git clone https://github.com/thetable/bubblegumsequencer
 cd bubblegumsequencer
+uv run setup.py
+```
+
+Nothing that describes your rig is in the repo. `camera.json`, `warp.json`,
+`tag_reference.json` and `prototypes.json` are all deliberately untracked, so
+a second machine starts with none of them and measures its own. Roughly ten
+minutes, nearly all of it spent placing the board and teaching the colours
+rather than waiting on software.
+
+**What you do not have to redo.** Focus, camera aim and the printed tags
+belong to the rig, not to the machine. If the box has not been touched, skip
+`focus_check.py`, `--centre` and `make_tags.py` entirely.
+
+**What you do have to redo, even though the rig is identical.** Exposure,
+because the two platforms do not even use the same units: Windows takes log2
+seconds, about -13 to -4, and macOS takes 100 microsecond steps. `camera.json`
+records which platform set the value and refuses one written by the other, so
+a copied file would be declined rather than silently misapplied. Then colours,
+because the prototypes are Lab values measured at that machine's exposure and
+white balance. Then geometry, since the reference is not in the repo either
+and the step takes under a minute.
+
+### On the Windows machine
+
+```sh
+uv run setup.py
+```
+
+The same walk, in the same order. The tools step prints that it has nothing to
+do and skips itself: uvc-util is a Mac-only workaround for OpenCV ignoring the
+exposure property there, and on Windows OpenCV honours it directly. So what
+actually runs is exposure, then geometry, then colours. Individually:
+
+```sh
+uv run setup.py --exposure
+uv run setup.py --geometry     # paper on the board; nothing to click
+uv run setup.py --colours
+```
+
+Two things that cost time the first time round. The walk waits on a return
+press in the terminal before it opens any window, so if no window appears,
+look at the terminal rather than for the window. And if the camera will not
+open at all, check Windows has not blocked it: Settings, Privacy and security,
+Camera, and let desktop apps use it.
+
+Then `Bubblegum.bat`, or `uv run play.py`.
+
+### On another Mac
+
+```sh
 uv run setup.py            # builds uvc-util, then walks the rig
 ```
 
-Roughly ten minutes, nearly all of it spent placing the board and teaching the
-colours rather than waiting on software. The environment is 24 seconds and the
-uvc-util build is a few more.
-
-Two things do not travel and are not meant to. Calibration describes your
-board under your lights, so it is measured again rather than copied. Camera
-permission is granted per app by macOS, so the first run prompts once; a
-double-clicked `Bubblegum.command` runs inside Terminal and inherits whatever
-Terminal was already given.
+The uvc-util build is a few seconds on top of the 24 the environment takes.
+Camera permission is granted per app by macOS, so the first run prompts once;
+a double-clicked `Bubblegum.command` runs inside Terminal and inherits
+whatever Terminal was already given.

@@ -294,12 +294,12 @@ def step_centre(args):
 
 
 def step_tools(args):
-    """uvc-util, or nothing to do at all off macOS."""
     """uvc-util, without which none of the rest is worth measuring.
 
     First, because it is the only step that needs the internet rather than
     the rig, and because everything after it is read off a frame whose
-    exposure it sets.
+    exposure it sets. Off macOS there is nothing here at all: OpenCV sets
+    the exposure directly on Windows and Linux.
     """
     if not camera.ON_MAC:
         # Windows and Linux honour the exposure property on the capture
