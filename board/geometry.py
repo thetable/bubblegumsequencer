@@ -173,9 +173,12 @@ def save_reference(tags, cells):
     """Remember where the grid sits relative to the tags.
 
     Kept as plain image coordinates from the frame it was measured in. On a
-    later frame the tags give a homography from that frame to this one, and
-    the cells come along with it. If the board has not moved the homography is
-    the identity and nothing is lost.
+    later frame the tags give a map from that frame to this one and the cells
+    come along with it: flat when there are only a few tags, bending when
+    they are spread enough to say how. If nothing has moved the map is the
+    identity and nothing is lost.
+
+    Every tag detected goes in, so adding the strips needs no other change.
 
     The fifth number per cell counts how many times that cell's position has
     been confirmed against a hole actually seen. Calibration starts everything
