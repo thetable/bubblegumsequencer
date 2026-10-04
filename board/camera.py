@@ -5,9 +5,15 @@ right up, and two bad things follow at once. The room coming through the empty
 holes ends up as bright as the balls, and the balls themselves blow out. Pinned
 by hand, neither happens.
 
-OpenCV cannot set exposure on this camera under macOS. It accepts the property
-and silently ignores it, which cost an evening to discover, so everything here
-goes through uvc-util instead.
+Setting it is where the machines part company. Under macOS OpenCV accepts the
+property and silently ignores it, which cost an evening to discover, so there
+it goes through uvc-util and IOKit. Windows and Linux do honour the property,
+so there it is set on the capture itself and uvc-util is not wanted.
+
+The number means different things in each case. uvc-util and V4L2 count in
+hundred-microsecond steps; DirectShow counts in stops, as the log to base two
+of the time in seconds. 157 and -6 are the same fifteen milliseconds. So the
+value is stamped with the machine that produced it and only used there.
 """
 
 import glob
@@ -15,6 +21,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import cv2
@@ -22,10 +29,24 @@ import numpy as np
 
 CAMERA_FILE = "camera.json"
 
-# The camera's own exposure-time-abs control runs 1 to 5000 and auto picks about
-# 157, which blows the balls out. These are the settings worth trying, spaced
-# geometrically so each step is roughly half a stop.
-EXPOSURE_CANDIDATES = [4, 6, 9, 13, 19, 27, 38, 55, 78, 110, 157, 220]
+SYSTEM = sys.platform                      # "darwin", "win32", "linux"
+ON_MAC = SYSTEM == "darwin"
+
+# Which capture backend to ask for. Left to choose for itself OpenCV picks
+# MSMF on Windows, which is slow to open and often refuses 1920 x 1080.
+BACKENDS = {"darwin": cv2.CAP_AVFOUNDATION, "win32": cv2.CAP_DSHOW}
+BACKEND = BACKENDS.get(SYSTEM, cv2.CAP_V4L2)
+
+# What OpenCV wants in CAP_PROP_AUTO_EXPOSURE to mean automatic and manual.
+# Another thing the two disagree about, and silently.
+AUTO_MANUAL = {"win32": (0.75, 0.25)}.get(SYSTEM, (3.0, 1.0))
+
+# The settings worth trying, in whatever unit this machine counts in. The
+# hundred-microsecond ladder is spaced about half a stop a step; DirectShow
+# cannot do better than a whole stop, since it only takes integers.
+EXPOSURE_CANDIDATES = (
+    [-13, -12, -11, -10, -9, -8, -7, -6, -5, -4] if SYSTEM == "win32"
+    else [4, 6, 9, 13, 19, 27, 38, 55, 78, 110, 157, 220])
 
 UVC_MANUAL, UVC_AUTO = 1, 8
 
@@ -42,6 +63,8 @@ def uvc_path():
     complaining: the exposure quietly went back to automatic, which is the
     single thing this module exists to prevent.
     """
+    if not ON_MAC:
+        return None            # an IOKit binary; there is no other build
     found = shutil.which("uvc-util")
     if found:
         return found
@@ -218,11 +241,15 @@ class quiet:
 
 def open_camera(args):
     with quiet():
-        cap = cv2.VideoCapture(args.index, cv2.CAP_AVFOUNDATION)
+        cap = cv2.VideoCapture(args.index, BACKEND)
     if not cap.isOpened():
         print(f"Could not open camera index {args.index}.")
-        print("On macOS the terminal app needs camera permission under "
-              "Privacy & Security.")
+        if ON_MAC:
+            print("On macOS the terminal app needs camera permission under "
+                  "Privacy & Security.")
+        elif SYSTEM == "win32":
+            print("On Windows, check Settings > Privacy > Camera, and that "
+                  "nothing else already has it open.")
         return None
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
@@ -260,12 +287,54 @@ def grab(cap, n=8):
     return orient(frame) if ok else None
 
 
-def set_exposure(index, value):
-    """Fix the exposure, or hand it back to the camera when value is None."""
+def set_exposure(cap, index, value):
+    """Fix the exposure, or hand it back to the camera when value is None.
+
+    Takes the capture as well as the index because off macOS the control lives
+    on the open capture rather than on the device.
+    """
+    if ON_MAC:
+        if value is None:
+            return uvc_util(index, "-s", f"auto-exposure-mode={UVC_AUTO}") is not None
+        ok = uvc_util(index, "-s", f"auto-exposure-mode={UVC_MANUAL}") is not None
+        return ok and uvc_util(index, "-s",
+                               f"exposure-time-abs={int(value)}") is not None
+    if cap is None:
+        return False
+    auto, manual = AUTO_MANUAL
     if value is None:
-        return uvc_util(index, "-s", f"auto-exposure-mode={UVC_AUTO}") is not None
-    ok = uvc_util(index, "-s", f"auto-exposure-mode={UVC_MANUAL}") is not None
-    return ok and uvc_util(index, "-s", f"exposure-time-abs={int(value)}") is not None
+        return bool(cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, auto))
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, manual)
+    return bool(cap.set(cv2.CAP_PROP_EXPOSURE, float(value)))
+
+
+def exposure_reachable(cap, index):
+    """Whether this machine can actually set the exposure at all."""
+    if ON_MAC:
+        return uvc_util(index, "-o", "exposure-time-abs") is not None
+    return cap is not None and cap.isOpened()
+
+
+def apply_pinned(cap, index):
+    """Set the exposure this rig was dialled to, if it was dialled here.
+
+    A value carried from another machine would be read in the wrong unit: 38
+    means under four milliseconds through uvc-util and sixteen seconds through
+    DirectShow. Leaving it on automatic is bad; setting it to sixteen seconds
+    is worse, so a value from elsewhere is declined out loud.
+    """
+    kept = settings()
+    value = kept.get("exposure")
+    if value is None:
+        return None
+    where = kept.get("exposure_on", "darwin")
+    if where != SYSTEM:
+        print(f"  Exposure {value} was dialled on {where}, and this is "
+              f"{SYSTEM}, where that number means something else.")
+        print("  Leaving it automatic. Run:  python setup.py --exposure")
+        return None
+    set_exposure(cap, index, value)
+    return value
 
 
 def dial_exposure(cap, index, target, corners):
@@ -275,12 +344,14 @@ def dial_exposure(cap, index, target, corners):
     first, and a blown pixel has lost its colour for good. Better a slightly
     dark picture than a white one.
     """
-    if uvc_util(index, "-o", "exposure-time-abs") is None:
-        print("  uvc-util is not answering, so the exposure cannot be set.")
-        print("  It should sit next to this script, or on the PATH.")
+    if not exposure_reachable(cap, index):
+        print("  The exposure cannot be set on this machine.")
+        if ON_MAC:
+            print("  uvc-util is not answering. It should sit next to this "
+                  "script, or on the PATH.")
         return None
 
-    set_exposure(index, None)          # start from the camera's own choice
+    set_exposure(cap, index, None)     # start from the camera's own choice
     base = grab(cap)
     if base is None:
         return None
@@ -289,7 +360,7 @@ def dial_exposure(cap, index, target, corners):
 
     results = []
     for value in EXPOSURE_CANDIDATES:
-        if not set_exposure(index, value):
+        if not set_exposure(cap, index, value):
             continue
         frame = grab(cap, 6)
         if frame is None:
@@ -303,9 +374,11 @@ def dial_exposure(cap, index, target, corners):
         return None
     spread = max(c for _, c, _ in results) - min(c for _, c, _ in results)
     if spread < 0.002:
-        print("\n  Nothing changed across the whole range, which should not "
-              "happen now that the control is being set on the device.")
-        print("  Check `uvc-util -I 0 -o exposure-time-abs` by hand.")
+        print("\n  Nothing changed across the whole range, so the camera is "
+              "ignoring the setting.")
+        print("  Check `uvc-util -I 0 -o exposure-time-abs` by hand." if ON_MAC
+              else "  Some webcams only accept exposure while auto is off, and "
+                   "some refuse it entirely.")
         return None
 
     usable = [r for r in results if r[1] <= target]
@@ -326,9 +399,7 @@ def single_frame(args):
     cap = open_camera(args)
     if cap is None:
         return None
-    pinned = settings().get("exposure")
-    if pinned is not None:
-        set_exposure(getattr(args, "uvc_index", 0), pinned)
+    apply_pinned(cap, getattr(args, "uvc_index", 0))
     frame = grab(cap, 10)
     cap.release()
     return frame

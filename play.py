@@ -103,9 +103,7 @@ def start_camera(args):
     cap = camera.open_camera(args)
     if cap is None:
         return None
-    pinned = camera.settings().get("exposure")
-    if pinned is not None:
-        camera.set_exposure(args.uvc_index, pinned)
+    camera.apply_pinned(cap, args.uvc_index)
     return cap
 
 
@@ -132,6 +130,8 @@ def preflight(args, expected):
     # Ask uvc-util what is actually plugged in before trusting OpenCV, which
     # opens whatever is at the index you gave it. Unplug the board's camera
     # and index 0 becomes the laptop's own, which opens perfectly happily.
+    # None means we cannot tell, which is the case off macOS, and is not the
+    # same as nothing being there: everything below just skips.
     seen = camera.uvc_devices()
     if seen is not None and not seen:
         print("No UVC camera is connected. OpenCV would open the laptop's own")
@@ -154,7 +154,8 @@ def preflight(args, expected):
     exposure = camera.settings().get("exposure", "auto")
     if camera.rotation():
         print("  mounting turned end for end, frames rotated on capture")
-    which = seen.get(args.uvc_index, "unknown") if seen else "not checked"
+    which = (seen.get(args.uvc_index, "unknown") if seen
+             else f"index {args.index}, name not checkable on {camera.SYSTEM}")
     print(f"  camera   {which}, exposure pinned at {exposure}")
     print(f"  colours  {', '.join(taught)}")
     return cap

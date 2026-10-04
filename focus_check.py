@@ -31,7 +31,7 @@ def find_cameras(max_index=4):
     """Report which capture indices actually open."""
     found = []
     for i in range(max_index):
-        cap = cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
+        cap = cv2.VideoCapture(i, camera.BACKEND)
         if cap.isOpened():
             ok, frame = cap.read()
             frame = camera.orient(frame)
@@ -43,7 +43,7 @@ def find_cameras(max_index=4):
 
 
 def open_camera(index, width, height, fps):
-    cap = cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
+    cap = cv2.VideoCapture(index, camera.BACKEND)
     if not cap.isOpened():
         return None
     # MJPEG first: without it macOS often negotiates YUY2 and drops to a crawl

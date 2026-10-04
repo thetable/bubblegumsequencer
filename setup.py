@@ -124,9 +124,7 @@ def step_centre(args):
     cap = camera.open_camera(args)
     if cap is None:
         return False
-    pinned = camera.settings().get("exposure")
-    if pinned is not None:
-        camera.set_exposure(args.uvc_index, pinned)
+    camera.apply_pinned(cap, args.uvc_index)
 
     win = "centring: slide the camera until the crosses meet"
     cv2.namedWindow(win)
@@ -215,12 +213,19 @@ def step_centre(args):
 
 
 def step_tools(args):
+    """uvc-util, or nothing to do at all off macOS."""
     """uvc-util, without which none of the rest is worth measuring.
 
     First, because it is the only step that needs the internet rather than
     the rig, and because everything after it is read off a frame whose
     exposure it sets.
     """
+    if not camera.ON_MAC:
+        # Windows and Linux honour the exposure property on the capture
+        # itself, so there is nothing to fetch and nothing to build.
+        print(f"\n--- tools ---\n  Nothing needed on {camera.SYSTEM}: the "
+              "exposure is set through the camera directly.")
+        return True
     if camera.uvc_path():
         return True
 
@@ -258,7 +263,8 @@ def step_exposure(args):
         print("   Could not set the exposure. Is uvc-util next to these scripts?")
         return False
     seen = camera.uvc_devices() or {}
-    camera.remember(exposure=value, index=args.index, uvc_index=args.uvc_index,
+    camera.remember(exposure=value, exposure_on=camera.SYSTEM,
+                    index=args.index, uvc_index=args.uvc_index,
                     device=seen.get(args.uvc_index))
     print(f"   Saved to {camera.CAMERA_FILE}: {seen.get(args.uvc_index, 'camera')}"
           f" at exposure {value}.")
@@ -371,9 +377,7 @@ def step_colours(args):
     cap = camera.open_camera(args)
     if cap is None:
         return False
-    pinned = camera.settings().get("exposure")
-    if pinned is not None:
-        camera.set_exposure(args.uvc_index, pinned)
+    camera.apply_pinned(cap, args.uvc_index)
 
     win = "bubblegum, teaching"
     cv2.namedWindow(win)

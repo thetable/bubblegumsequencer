@@ -186,10 +186,7 @@ def main():
     cap = camera.open_camera(args)
     if cap is None:
         return 1
-    pinned = camera.settings().get("exposure")
-    if pinned is not None:
-        camera.set_exposure(args.uvc_index, pinned)
-        print(f"exposure pinned at {pinned}")
+    camera.apply_pinned(cap, args.uvc_index)
 
     win = "bubblegum, what the camera sees"
     cv2.namedWindow(win)

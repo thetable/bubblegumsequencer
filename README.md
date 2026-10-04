@@ -13,13 +13,17 @@ from the balls themselves.
 
 - A UVC webcam, roughly 200 mm below the sheet, looking up
 - LED strips inside the enclosure, lighting the sheet from below
-- macOS, for the exposure control, which goes through
-  [uvc-util](https://github.com/jtfrey/uvc-util). `setup.py` builds it for you.
 - [uv](https://docs.astral.sh/uv/), which brings its own Python
 
 ```sh
-curl -LsSf https://astral.sh/uv/install.sh | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh          # macOS, Linux
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"   # Windows
 ```
+
+On **macOS** the exposure has to go through
+[uvc-util](https://github.com/jtfrey/uvc-util), because OpenCV accepts the
+property there and silently ignores it. `setup.py` builds it for you. On
+**Windows and Linux** OpenCV does honour it, so there is nothing to fetch.
 
 That is the whole install. `uv run` builds the environment from `uv.lock` the
 first time it is asked for one, about half a minute, and finds it already
@@ -63,9 +67,10 @@ geometry, then colours. It tells you what to do at each step.
 uv run setup.py
 ```
 
-The order is not arbitrary. Tools first, because the only thing in that step
-is uvc-util and everything after it is measured off a frame whose exposure
-uvc-util sets; if it is missing, setup offers to clone and compile it.
+The order is not arbitrary. Tools first, because on macOS the only thing in
+that step is uvc-util and everything after it is measured off a frame whose
+exposure it sets; if it is missing, setup offers to build it. Off macOS the
+step says so and does nothing.
 Exposure second, because geometry and colour are both read off a correctly
 exposed frame; left on auto the camera meters a mostly-black board, opens
 right up, and the room coming through the empty holes ends up as bright as
@@ -83,8 +88,9 @@ uv run setup.py --colours
 
 ## Playing it
 
-Double-click **Bubblegum.command** in Finder, which builds the environment if
-it has to, starts the server and opens the browser. Or, from a terminal:
+Double-click **Bubblegum.command** in Finder, or **Bubblegum.bat** in
+Explorer. Either builds the environment if it has to, starts the server and
+opens the browser. Or, from a terminal:
 
 ```sh
 uv run play.py
@@ -138,11 +144,12 @@ Three commands, on one library.
 | `focus_check.py` | setting the lens |
 | `board/framing.py` | where the board sits in the frame, and the room around it |
 | `board/files.py` | where the tools put what they produce |
-| `Bubblegum.command` | the same as `play.py`, for people who use Finder |
+| `Bubblegum.command` | the same as `play.py`, for Finder |
+| `Bubblegum.bat` | the same again, for Explorer |
 
 | | |
 |---|---|
-| `board/camera.py` | opening it, and pinning the exposure through uvc-util |
+| `board/camera.py` | opening it, and pinning the exposure, per platform |
 | `board/geometry.py` | finding the holes, the warp, the tags, the reference |
 | `board/colour.py` | sampling a cell, teaching a colour, classifying |
 | `board/pattern.py` | what is on the board, not what the last frame showed |
@@ -158,6 +165,13 @@ Calibration is the other thing outside the repo, and it is deliberately not in
 `captures/`. `camera.json`, `corners.json`, `warp.json`, `tag_reference.json`
 and `prototypes.json` describe one rig at one moment, they are read on every
 run, and losing them costs a setup walk rather than a rerun.
+
+`camera.json` also records which machine the exposure was dialled on, and
+declines to use it anywhere else. The number is not in the same unit:
+uvc-util and V4L2 count in hundred-microsecond steps, DirectShow counts in
+stops, so 157 and -6 are both fifteen milliseconds and 38 is either four
+milliseconds or sixteen seconds. Carrying one across would be worse than
+leaving the exposure automatic.
 
 `camera.json` records the camera by **name**, not just by index, and both
 commands check it before trusting what they opened. An index is a property
