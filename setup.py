@@ -189,7 +189,7 @@ def step_centre(args):
 
     win = "centring: slide the camera until the crosses meet"
     cv2.namedWindow(win)
-    best = None
+    best = last_off = None
     while True:
         ok, frame = cap.read()
         frame = camera.orient(frame)
@@ -243,6 +243,7 @@ def step_centre(args):
                           f"room to slide:  left {m['right']:.0f}  "
                           f"right {m['left']:.0f}  up {m['up']:.0f}  "
                           f"down {m['down']:.0f}  mm"]
+            last_off = (m["off_x"], m["off_y"])
             if not rough and (best is None or worst > best):
                 best = worst
         else:
@@ -271,9 +272,18 @@ def step_centre(args):
 
     cap.release()
     cv2.destroyWindow(win)
-    if best is None:
+    # Seen and measured are not the same thing. On tags alone there is no
+    # scale to turn pixels into millimetres, and reporting nothing seen in
+    # that case is a lie about the one run where this tool is most needed.
+    if last_off is None:
         print("  Never saw the board, so nothing was measured.")
         return False
+    if best is None:
+        print(f"  Left {last_off[0]:+.0f}, {last_off[1]:+.0f} px off the middle "
+              "of the frame, measured on the tags.")
+        print("  Under about 40 px either way is close enough to click corners "
+              "on. Next:  python setup.py --geometry --reclick")
+        return True
     print(f"  Best it got: {best:.0f} mm of room in the worst direction.")
     if best < 8:
         print("  Under 8 mm is tight. Worth another go before tightening down.")
