@@ -101,6 +101,67 @@ def click_corners(frame, preview_width=1280):
     return picked
 
 
+def step_survey(args):
+    """Try every exposure and report how many holes each one finds.
+
+    Geometry and colour do not want the same picture. The exposure step picks
+    the brightest setting that does not blow the balls out, which is right for
+    reading colour and says nothing about whether the empty holes are visible.
+    On a rig where the holes are the dark thing, a stop either way changes the
+    count by more than any other knob.
+
+    So rather than guess and re-run, sweep it once and look at the table.
+    """
+    print("\n   SURVEY")
+    print("   Take the balls out and leave the light as it will be.")
+    if not os.path.exists(CORNERS_FILE):
+        print(f"   No {CORNERS_FILE} yet. Run setup.py --geometry --reclick "
+              "first, even if it fails: the clicks are what bound the search.")
+        return False
+    corners = json.load(open(CORNERS_FILE))
+    input("   Press return when ready. ")
+
+    cap = camera.open_camera(args)
+    if cap is None:
+        return False
+    pitch = float(np.linalg.norm(np.float32(corners[1]) - np.float32(corners[0]))
+                  / (geometry.COLS - 1))
+    print(f"\n   {'exposure':>9}  {'holes':>5}  per row            grey  best as")
+    best = (None, -1, None)
+    for value in camera.EXPOSURE_CANDIDATES:
+        if not camera.set_exposure(cap, args.uvc_index, value):
+            continue
+        frame = camera.orient(camera.grab(cap, 6))
+        if frame is None:
+            continue
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        found = {}
+        for how in ("bright", "dark"):
+            found[how] = geometry.find_holes(gray, np.float32(corners),
+                                             pitch, args.sens, how)
+        how = max(found, key=lambda k: len(found[k]))
+        blobs = found[how]
+        per = [0, 0, 0, 0]
+        if blobs:
+            label = geometry.group_rows(blobs, corners)
+            per = [int((label == k).sum()) for k in range(geometry.ROWS)]
+        print(f"   {value:>9}  {len(blobs):>5}  {str(per):18s} {np.median(gray):4.0f}  {how}")
+        if len(blobs) > best[1]:
+            best = (value, len(blobs), frame)
+    cap.release()
+
+    if best[0] is None:
+        print("\n   Nothing found at any exposure.")
+        return False
+    shot = files.capture("survey_best.png")
+    cv2.imwrite(shot, best[2])
+    print(f"\n   Best was {best[0]}, with {best[1]} holes. Frame in "
+          f"{files.shown(shot)}.")
+    print("   To use it:  python setup.py --geometry --reclick   after")
+    print(f"   setting exposure {best[0]} in {camera.CAMERA_FILE}.")
+    return True
+
+
 # --------------------------------------------------------------------- framing
 
 
@@ -432,6 +493,8 @@ def main():
     ap.add_argument("--reclick", action="store_true",
                     help="redo the corner clicks rather than reusing them")
     ap.add_argument("--colour-names", type=str, default=",".join(DEFAULT_COLOURS))
+    ap.add_argument("--survey", action="store_true",
+                    help="try every exposure, report how many holes each finds")
     ap.add_argument("--centre", action="store_true",
                     help="aim the camera; a build step, not part of the walk")
     ap.add_argument("--tools", action="store_true")
@@ -441,6 +504,8 @@ def main():
     args = ap.parse_args()
     camera.resolve(args)
 
+    if args.survey:
+        return 0 if step_survey(args) else 1
     if args.centre:
         return 0 if step_centre(args) else 1
 
