@@ -77,12 +77,27 @@ right up, and the room coming through the empty holes ends up as bright as
 the balls while the balls themselves blow out. Geometry third, because
 teaching a colour means sampling cells, which means knowing where they are.
 
+The geometry step asks you to lay white paper over the board, three or four
+sheets thick, leaving the tag strips uncovered. The paper is a diffuser and
+it turns the hard case into the easy one. Bare, the sheet reads 86 grey at
+its edges and 48 in the middle, a gradient no single threshold can straddle,
+and the best any exposure managed was 27 holes of 64 with three bands of the
+board finding none at all. Through paper it finds 63 of 64, every row all but
+complete, and fits a grid that lands 4.7 px from the holes on a frame it has
+never seen. There is nothing to click.
+
+Without paper it falls back to placing the grid from the tag strips and four
+corner clicks. That still works and it is still the rough route: the clicks
+sit 56 mm past the outermost tag, forcing them into the fit bends it
+everywhere else, and the middle of the top and bottom rows lands about a
+third of a hole out.
+
 Individual steps, when only one thing has changed:
 
 ```sh
 uv run setup.py --tools
 uv run setup.py --exposure
-uv run setup.py --geometry     # --reclick to redo the corner clicks
+uv run setup.py --geometry     # paper on the board; nothing to click
 uv run setup.py --colours
 ```
 

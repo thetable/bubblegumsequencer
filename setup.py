@@ -352,14 +352,30 @@ def step_exposure(args):
     return True
 
 
+def report_fit(residual):
+    """The one line saying how well the warp agrees with the holes it saw.
+
+    Empty when the grid came from warp.json with nothing in frame to check
+    it against, which is a real outcome and not an error, so it says so
+    rather than dividing by no holes at all.
+    """
+    if not len(residual):
+        print("   No holes in frame to check it against.")
+        return
+    print(f"   Warp fits them to {np.median(residual):.1f} px median, "
+          f"{max(residual):.1f} px worst.")
+
+
 def step_geometry(args):
     """Fit the grid to the holes, then record it against the tags."""
     print("\n2. GEOMETRY")
-    print("   Take the balls out. The four corner clicks place the grid, so")
-    print("   the holes only have to be visible enough to fit a shape to, not")
-    print("   all of them: thirty-odd of the sixty-four is plenty.")
-    print("   If it says too few, more light on one side than the other helps,")
-    print("   either way round. It is the two being equal that hides them.")
+    print("   Take the balls out and lay white paper over the whole board,")
+    print("   three or four sheets thick. Leave both tag strips uncovered.")
+    print("   The paper is a diffuser: it turns every hole into the same")
+    print("   bright disc, which is the one thing a bare sheet never does.")
+    print("   Lit from below it reads twice as bright at the edges as in the")
+    print("   middle, and no single threshold can straddle that.")
+    print("   With the paper down there is nothing to click.")
     input("   Press return when ready. ")
 
     frame = camera.single_frame(args)
@@ -374,6 +390,16 @@ def step_geometry(args):
         print("   Need at least three. Check they are flat, in view, and not")
         print("   sitting in the glare from a strip.")
         return False
+
+    # Paper first, because it is the only route that measures all 64 holes
+    # where they really are. Everything below it is a way of coping without
+    # them, and coping costs accuracy: the clicks route put the middle of the
+    # outer rows 27 px out, against 4.7 px for this one on a held-out frame.
+    cells, residual = geometry.cells_from_paper(gray, tags)
+    if cells is not None:
+        report_fit(residual)
+        return finish_geometry(frame, tags, cells)
+    print("   Falling back to the routes that do not need the paper.")
 
     corners = None
     if os.path.exists(CORNERS_FILE) and not args.reclick:
@@ -393,23 +419,20 @@ def step_geometry(args):
 
     pitch = float(np.linalg.norm(np.float32(corners[1]) - np.float32(corners[0]))
                   / (geometry.COLS - 1))
-    # The strips, if they are on the board, settle this without looking at a
-    # single hole. Their pitch is printed and known, so where they land in
-    # the frame is a direct reading of how the lens bends, and the clicks say
-    # where the grid sits inside that. Hole detection is the part of this rig
-    # that will not hold still, so not needing it is the whole point.
+    # The strips place the grid without looking at a single hole, which is
+    # why this is here at all. It is the least accurate route of the three
+    # and it is not close: the clicks sit 56 mm past the outermost tag, and
+    # forcing them into the cubic bends it everywhere else. Measured against
+    # balls in known holes, the middle of the outer rows came out 27 px off,
+    # where the paper route manages 4.7 on a frame it has never seen. Use it
+    # when there is no paper to hand and nothing else will run.
     strip_cells, strip_fit = geometry.cells_from_strips(tags, corners)
     if strip_cells is not None:
         print(f"   Placed from the tag strips, fitting them to {strip_fit:.1f} px."
               "  No holes needed.")
-        geometry.save_reference(tags, strip_cells)
-        print(f"   Recorded against tags {sorted(tags)}. The board can move now.")
-        m = framing.margins(frame.shape, strip_cells, tags,
-                            geometry.COLS, geometry.ROWS)
-        if m:
-            print(f"   Room to slide: left {m['left']:.0f}  right {m['right']:.0f}"
-                  f"  up {m['up']:.0f}  down {m['down']:.0f} mm.")
-        return True
+        print("   This is the rough route. Expect the middle of the top and")
+        print("   bottom rows to sit a third of a hole out. Paper fixes it.")
+        return finish_geometry(frame, tags, strip_cells)
 
     blobs = geometry.find_holes(gray, corners, pitch, args.sens)
     total = geometry.COLS * geometry.ROWS
@@ -440,10 +463,15 @@ def step_geometry(args):
                                             allow_cached=not args.reclick)
     if cells is None:
         return False
-    print(f"   Warp fits them to {np.median(residual):.1f} px median, "
-          f"{max(residual):.1f} px worst.")
+    report_fit(residual)
+    return finish_geometry(frame, tags, cells)
+
+
+def finish_geometry(frame, tags, cells):
+    """Record the grid against the tags, and say how much room it has."""
     geometry.save_reference(tags, cells)
     print(f"   Recorded against tags {sorted(tags)}. The board can move now.")
+    print("   Take the paper off before teaching colours.")
 
     # Said here because it is the one problem that hides behind a good result.
     # The board reads perfectly while sitting against the edge of the frame;

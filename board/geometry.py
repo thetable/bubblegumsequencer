@@ -624,6 +624,135 @@ def cells_from_strips(tags, corners):
     return cells, resid
 
 
+# ------------------------------------------------------------ the paper route
+
+PAPER_SENS = (0.95, 0.9, 0.85, 0.8, 0.75)   # tried in turn; see cells_from_paper
+OFF_GRID = 0.85         # board units past which a blob is strip, not hole
+ROW_GAP = 2.5           # how much clearer the four row splits must be
+
+
+def label_rows_from_tags(blobs, forward):
+    """A row for every blob, and -1 for whatever is not a hole at all.
+
+    The tag map is used here and only here, for the one question it answers
+    well. That question is relative: the strips fit it to 0.6 px, so it says
+    which band of the board a blob sits in with room to spare, and it says so
+    without the four corner clicks that used to carry this.
+
+    Nothing absolute is asked of it, because absolutely it is poor. The outer
+    columns sit 56 mm past the last tag, and out there the cubic reads the
+    grid as 416 mm wide where it is 360. None of that reaches the answer:
+    once the blobs are labelled the warp is fitted to the blobs themselves
+    and this map is thrown away.
+    """
+    board = to_board(forward, [[b["x"], b["y"]] for b in blobs])
+    on = np.where(np.abs(board[:, 1]) < OFF_GRID)[0]
+    if len(on) < 2 * COLS:
+        return None
+
+    # Descending, so row 0 is the back edge. The tags put the BACK strip at
+    # +1 and that end of the board images at the top; sorting the other way
+    # mirrors the whole sequence and nothing downstream would notice.
+    order = on[np.argsort(-board[on, 1])]
+    gaps = -np.diff(board[order, 1])
+    cuts = np.sort(np.argsort(gaps)[-(ROWS - 1):])
+    if gaps[cuts].min() < ROW_GAP * np.sort(gaps)[-ROWS]:
+        return None            # the bands are not separated cleanly enough
+
+    label = np.full(len(blobs), -1)
+    for k, (a, c) in enumerate(zip([0] + [i + 1 for i in cuts],
+                                   [i + 1 for i in cuts] + [len(order)])):
+        label[order[a:c]] = k
+    return label
+
+
+def cells_from_paper(gray, tags, sens=PAPER_SENS):
+    """All 64 centres from a board with white paper laid over it. No clicks.
+
+    Paper on top is a diffuser, and it turns the one thing this rig could
+    never do into the easy case. Bare, the sheet reads 86 grey at the edges
+    and 48 in the middle, a gradient no single threshold can straddle: the
+    best any exposure managed was 27 holes of 64, with three bands of the
+    board finding none at all at any stop. Through paper every hole is the
+    same bright disc, and the first threshold tried finds 63 of 64.
+
+    That changes what the calibration can be made of. The corner clicks exist
+    only because hole detection could not be relied on, and they were never
+    free. Forced into the tag fit at 56 mm past the outermost tag they bent
+    the cubic everywhere else, doubling the row curvature and leaving the
+    middle of the outer rows 30 px from the holes they were naming. With the
+    holes visible there is nothing left for the clicks to do.
+
+    The polarity is not searched for here. Paper over the holes and a camera
+    under them means a hole is the bright thing, whichever side the light
+    comes from, so the one ambiguity the detector carries does not arise.
+    """
+    fitted = fit_board_map(tags)
+    if fitted is None:
+        print("   Need both tag strips to sort the holes into rows.")
+        return None, None
+    forward, _ = fitted
+
+    h, w = gray.shape[:2]
+    whole = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
+
+    # Swept rather than set, because the right threshold depends on how many
+    # sheets went down and nobody should have to know that. The search is
+    # over the whole frame, not inside a clicked quad: the rows bow by 60 px
+    # and a straight-edged quad clips the middle of the outer ones, 52 holes
+    # inside it against 64 without. What else comes in is the tag strips, and
+    # the map puts those a long way off the grid.
+    #
+    # Scored on complete rows first, because a complete row is the only thing
+    # that numbers the columns without being told, and on how many holes
+    # after that. A looser threshold finding more blobs is no use if it has
+    # merged two of them.
+    best = None
+    for sens in (sens if isinstance(sens, tuple) else (sens,)):
+        blobs = find_holes(gray, whole, w / (COLS - 1), sens, polarity="bright")
+        label = label_rows_from_tags(blobs, forward) if blobs else None
+        if label is None:
+            continue
+        u, v, x, y, complete = seed_labels(blobs, label)
+        score = (len(complete), int((label >= 0).sum()))
+        if best is None or score > best[0]:
+            best = (score, sens, blobs, label, u, v, x, y, complete)
+    if best is None:
+        print("   No threshold sorted the discs into four rows.")
+        print("   Usually too little paper: one sheet lets the lamp through "
+              "and the contrast goes with it.")
+        print("   Three or four sheets, or something thicker, is plenty.")
+        return None, None
+
+    _, sens, blobs, label, u, v, x, y, complete = best
+    off = int((label < 0).sum())
+    print(f"   {len(blobs) - off} discs on the grid at sens {sens}, "
+          f"{[int((label == k).sum()) for k in range(ROWS)]} per row"
+          + (f", {off} elsewhere ignored." if off else "."))
+
+    if len(complete) < 2:
+        print(f"   Only {len(complete)} of {ROWS} rows came up with all "
+              f"{COLS} holes, and two are needed to number the columns.")
+        print("   A little more light, or more paper, should fill them in.")
+        return None, None
+
+    pitch = (max(x) - min(x)) / (COLS - 1)
+    cx, cy, v_degree, matched = _refine(blobs, *fit_warp(u, v, x, y, 1),
+                                        1, pitch, 4)
+    grid = warp_basis(np.tile(np.arange(COLS), ROWS),
+                      np.repeat(np.arange(ROWS), COLS), v_degree)
+    ok, middle, edges = pitch_humped(grid @ cx)
+    if not ok:
+        print(f"   Column pitch came out {middle:.0f} px mid-board against "
+              f"{min(edges):.0f} to {max(edges):.0f} px at the edges.")
+        print("   That is the wrong way round, so the columns are "
+              "misassigned. Stopping.")
+        return None, None
+
+    save_warp(cx, cy, v_degree)
+    return _build_cells(blobs, matched, cx, cy, v_degree)
+
+
 def seed_from_corners(blobs, corners, k=0.0):
     """A column and row for every blob, read off the four clicked corners.
 
@@ -690,6 +819,95 @@ def best_seed(blobs, corners):
         if score < best[5]:
             best = (u, v, x, y, float(k), score)
     return best[:5]
+
+
+def _refine(blobs, cx, cy, v_degree, pitch, passes):
+    """Re-read the labels from the model, refit, repeat.
+
+    The seed only has to be roughly right. Each pass asks the current warp
+    where every cell is, hands each cell its nearest blob, and refits to
+    whatever it collected, so a hole that started one column out is pulled
+    back as soon as the surface has a shape. With three rows in hand the row
+    polynomial is allowed a quadratic, which is what absorbs the bow.
+    """
+    bx = np.array([b["x"] for b in blobs])
+    by = np.array([b["y"] for b in blobs])
+    all_u = np.tile(np.arange(COLS), ROWS)
+    all_v = np.repeat(np.arange(ROWS), COLS)
+    matched = {}
+    for n in range(passes):
+        grid = warp_basis(all_u, all_v, v_degree)
+        px, py = grid @ cx, grid @ cy
+        dist = np.hypot(bx[:, None] - px[None, :], by[:, None] - py[None, :])
+        nearest = np.argmin(dist, axis=1)
+        d = dist[np.arange(len(blobs)), nearest]
+
+        # One blob per cell, and only if it is comfortably inside that cell.
+        matched = {}
+        for i in np.where(d < 0.45 * pitch)[0]:
+            cell = int(nearest[i])
+            if cell not in matched or d[i] < d[matched[cell]]:
+                matched[cell] = i
+        if n == passes - 1 or len(matched) < 8:
+            break
+        v_degree = 2 if len({all_v[c] for c in matched}) >= 3 else 1
+        cx, cy = fit_warp([all_u[c] for c in matched], [all_v[c] for c in matched],
+                          [bx[i] for i in matched.values()],
+                          [by[i] for i in matched.values()], v_degree)
+    return cx, cy, v_degree, matched
+
+
+def pitch_humped(px):
+    """Whether the column pitch is widest mid-board, as a wide lens forces.
+
+    A fit that comes out dished has locked onto the wrong columns, and it
+    will fit its own mistake perfectly well, so the residual will not give it
+    away. This is the check that does.
+    """
+    middle = np.diff(px[COLS // 2 - 2:COLS // 2 + 2]).mean()
+    edges = np.diff(px[:3]).mean(), np.diff(px[-3:]).mean()
+    return middle > max(edges), middle, edges
+
+
+def _build_cells(blobs, matched, cx, cy, v_degree):
+    """The 64 cells, with a sample disc sized to the lens at each one."""
+    all_u = np.tile(np.arange(COLS), ROWS)
+    all_v = np.repeat(np.arange(ROWS), COLS)
+    grid = warp_basis(all_u, all_v, v_degree)
+    px, py = grid @ cx, grid @ cy
+
+    # How much taller than wide a hole reads, as a smooth function of column.
+    # The lens squashes the edge holes across the board but not along it, so a
+    # hole at column 15 comes out 32 x 53 px where a middle one is 73 x 72.
+    # This is measured off the holes themselves rather than worked out from the
+    # off-axis angle, so it needs no numbers about the camera.
+    ratio = [blobs[i]["h"] / max(blobs[i]["w"], 1) for i in matched.values()]
+    shape = (np.polyfit([all_u[c] for c in matched], ratio, 2)
+             if len(matched) >= 8 else np.array([0.0, 0.0, 1.0]))
+
+    cells = []
+    for c in range(COLS * ROWS):
+        # Hole is 12 mm across a 24 mm pitch, so a disc safely inside the
+        # aperture is about a fifth of the local pitch. Taking it from the warp
+        # means edge cells, which the lens squashes to half the width of the
+        # middle ones, get a disc that shrinks with them.
+        u = all_u[c]
+        step = warp_basis([u + (1 if u < COLS - 1 else -1)], [all_v[c]], v_degree)
+        gap = float(np.hypot(step @ cx - px[c], step @ cy - py[c])[0])
+        rx = max(4, int(0.19 * gap))
+        # Stretch it back out along the hole. Never squash below a circle: an
+        # aspect under 1 would mean the fit has gone wrong, not that the hole
+        # is wider than it is tall.
+        aspect = float(np.clip(np.polyval(shape, u), 1.0, 2.5))
+        cells.append({"idx": c, "row": c // COLS, "col": c % COLS,
+                      "x": float(px[c]), "y": float(py[c]),
+                      "rx": rx, "ry": max(4, int(rx * aspect)),
+                      "found": int(c in matched)})
+    bx = np.array([b["x"] for b in blobs])
+    by = np.array([b["y"] for b in blobs])
+    residual = [float(np.hypot(bx[i] - px[c], by[i] - py[c]))
+                for c, i in matched.items()]
+    return cells, residual
 
 
 def load_warp():
@@ -768,44 +986,17 @@ def locate_cells(blobs, corners, pitch, allow_cached=True):
         v_degree = 1
         cx, cy = fit_warp(u, v, x, y, v_degree)
 
-    bx = np.array([b["x"] for b in blobs])
-    by = np.array([b["y"] for b in blobs])
+    cx, cy, v_degree, matched = _refine(
+        blobs, cx, cy, v_degree, pitch, (4 if fitting else 1) if blobs else 0)
+
     all_u = np.tile(np.arange(COLS), ROWS)
-    all_v = np.repeat(np.arange(ROWS), COLS)
-
-    matched = {}
-    passes = (4 if fitting else 1) if blobs else 0
-    for _ in range(passes):
-        grid = warp_basis(all_u, all_v, v_degree)
-        px, py = grid @ cx, grid @ cy
-        dist = np.hypot(bx[:, None] - px[None, :], by[:, None] - py[None, :])
-        nearest = np.argmin(dist, axis=1)
-        d = dist[np.arange(len(blobs)), nearest]
-
-        # One blob per cell, and only if it is comfortably inside that cell.
-        matched = {}
-        for i in np.where(d < 0.45 * pitch)[0]:
-            cell = int(nearest[i])
-            if cell not in matched or d[i] < d[matched[cell]]:
-                matched[cell] = i
-        if not fitting or len(matched) < 8:
-            break
-        v_degree = 2 if len({all_v[c] for c in matched}) >= 3 else 1
-        cx, cy = fit_warp([all_u[c] for c in matched], [all_v[c] for c in matched],
-                          [bx[i] for i in matched.values()],
-                          [by[i] for i in matched.values()], v_degree)
-
-    grid = warp_basis(all_u, all_v, v_degree)
+    grid = warp_basis(all_u, np.repeat(np.arange(ROWS), COLS), v_degree)
     px, py = grid @ cx, grid @ cy
-    residual = [np.hypot(bx[i] - px[c], by[i] - py[c]) for c, i in matched.items()]
 
     # A wide lens always magnifies the middle of the frame, so the column pitch
-    # has to be a hump: widest mid-board, tightest at both edges. A fit that
-    # comes out dished has locked onto the wrong columns, and it will fit its
-    # own mistake perfectly well, so the residual will not give it away.
-    middle = np.diff(px[COLS // 2 - 2:COLS // 2 + 2]).mean()
-    edges = np.diff(px[:3]).mean(), np.diff(px[-3:]).mean()
-    if fitting and middle <= max(edges):
+    # has to be a hump: widest mid-board, tightest at both edges.
+    ok, middle, edges = pitch_humped(px)
+    if fitting and not ok:
         print(f"  Column pitch came out {middle:.0f} px mid-board against "
               f"{min(edges):.0f} to {max(edges):.0f} px at the edges.")
         print("  That is the wrong way round, so the columns are misassigned. "
@@ -830,39 +1021,7 @@ def locate_cells(blobs, corners, pitch, allow_cached=True):
             return None, None
         save_warp(cx, cy, v_degree)
 
-    # Sample at the fitted position, not the blob's own centroid. A dim hole is
-    # only partly caught by the detector and its centroid drifts towards the lit
-    # side; the warp is one smooth surface through every hole on the board, so it
-    # averages that away. The sheet is rigid, so the true centres really are
-    # smooth in (col, row) and nothing real is being smoothed out.
-    # How much taller than wide a hole reads, as a smooth function of column.
-    # The lens squashes the edge holes across the board but not along it, so a
-    # hole at column 15 comes out 32 x 53 px where a middle one is 73 x 72.
-    # This is measured off the holes themselves rather than worked out from the
-    # off-axis angle, so it needs no numbers about the camera.
-    ratio = [blobs[i]["h"] / max(blobs[i]["w"], 1) for i in matched.values()]
-    shape = (np.polyfit([all_u[c] for c in matched], ratio, 2)
-             if len(matched) >= 8 else np.array([0.0, 0.0, 1.0]))
-
-    cells = []
-    for c in range(COLS * ROWS):
-        # Hole is 12 mm across a 24 mm pitch, so a disc safely inside the
-        # aperture is about a fifth of the local pitch. Taking it from the warp
-        # means edge cells, which the lens squashes to half the width of the
-        # middle ones, get a disc that shrinks with them.
-        u = all_u[c]
-        step = warp_basis([u + (1 if u < COLS - 1 else -1)], [all_v[c]], v_degree)
-        gap = float(np.hypot(step @ cx - px[c], step @ cy - py[c])[0])
-        rx = max(4, int(0.19 * gap))
-        # Stretch it back out along the hole. Never squash below a circle: an
-        # aspect under 1 would mean the fit has gone wrong, not that the hole
-        # is wider than it is tall.
-        aspect = float(np.clip(np.polyval(shape, u), 1.0, 2.5))
-        cells.append({"idx": c, "row": c // COLS, "col": c % COLS,
-                      "x": float(px[c]), "y": float(py[c]),
-                      "rx": rx, "ry": max(4, int(rx * aspect)),
-                      "found": int(c in matched)})
-    return cells, residual
+    return _build_cells(blobs, matched, cx, cy, v_degree)
 
 
 # ---------------------------------------------------------------- colours
