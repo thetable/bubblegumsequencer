@@ -22,9 +22,19 @@ def content(cells, tags):
 
     The cells with their hole rims, and the tags. Losing a cell costs one step
     of the sequence; losing a tag costs the whole placement, so both count.
+
+    With no cells, the tags alone. That happens exactly when it is needed
+    most: new tags on the board and no reference mentioning them, which is
+    the moment you are aiming the camera. The box is then too small, since
+    the grid reaches past the tags sideways, but its centre is the grid's
+    centre and centring is all this is for.
     """
     if not cells:
-        return None
+        if not tags:
+            return None
+        xs = [v for c in tags.values() for v in c[:, 0]]
+        ys = [v for c in tags.values() for v in c[:, 1]]
+        return float(min(xs)), float(min(ys)), float(max(xs)), float(max(ys))
     x0 = min(c["x"] - c["rx"] for c in cells)
     x1 = max(c["x"] + c["rx"] for c in cells)
     y0 = min(c["y"] - c["ry"] for c in cells)
@@ -60,6 +70,15 @@ def margins(frame_shape, cells, tags, cols, rows):
     box = content(cells, tags)
     if box is None:
         return None
+    if not cells:
+        # No grid to measure a scale from, so report the offset only. The
+        # arrow and the crosses still mean what they always meant.
+        h, w = frame_shape[:2]
+        x0, y0, x1, y1 = box
+        return {"box": box, "tags_only": True,
+                "left": 0.0, "right": 0.0, "up": 0.0, "down": 0.0,
+                "shift_x": 0.0, "shift_y": 0.0,
+                "off_x": ((w - x1) - x0) / 2, "off_y": ((h - y1) - y0) / 2}
     h, w = frame_shape[:2]
     x0, y0, x1, y1 = box
     edge, vert, middle = scales(cells, cols, rows)

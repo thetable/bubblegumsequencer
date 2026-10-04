@@ -196,8 +196,9 @@ def step_centre(args):
         if not ok:
             break
         cells, tags, note, _ = read_board(frame)
-        m = framing.margins(frame.shape, cells, tags,
-                            geometry.COLS, geometry.ROWS) if cells else None
+        m = (framing.margins(frame.shape, cells, tags,
+                             geometry.COLS, geometry.ROWS)
+             if (cells or tags) else None)
         # Mirrored, like every other window here. It was not, on the theory
         # that you are moving the camera rather than the board so the camera's
         # own view is the honest one. In practice you stand over the board,
@@ -220,7 +221,10 @@ def step_centre(args):
             x0, y0, x1, y1 = (int(v) for v in m["box"])
             x0, x1 = mirror(x1), mirror(x0)
             cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
-            good, worst, says = framing.verdict(m)
+            rough = m.get("tags_only")
+            good, worst, says = ((abs(m["off_x"]) < 40 and abs(m["off_y"]) < 40,
+                                  0.0, "centred on the tags")
+                                 if rough else framing.verdict(m))
             tint = (90, 230, 90) if good else (60, 200, 255)
             cv2.rectangle(view, (x0, y0), (x1, y1), tint, 2)
             cv2.drawMarker(view, (cx, cy), tint, cv2.MARKER_TILTED_CROSS, 60, 3)
@@ -228,12 +232,18 @@ def step_centre(args):
                             tipLength=0.15)
             lines = [says,
                      "arrow = where the board has to go."
-                     "  Camera moves the opposite way.",
-                     f"out by {abs(m['shift_x']):.0f} mm across and "
-                     f"{abs(m['shift_y']):.0f} mm the other way",
-                     f"room to slide:  left {m['right']:.0f}  right {m['left']:.0f}"
-                     f"  up {m['up']:.0f}  down {m['down']:.0f}  mm"]
-            if best is None or worst > best:
+                     "  Camera moves the opposite way."]
+            if rough:
+                lines += [f"off centre by {m['off_x']:+.0f}, {m['off_y']:+.0f} px",
+                          "measured on the tags only: no reference names these",
+                          "yet, so the grid is wider than the box drawn."]
+            else:
+                lines += [f"out by {abs(m['shift_x']):.0f} mm across and "
+                          f"{abs(m['shift_y']):.0f} mm the other way",
+                          f"room to slide:  left {m['right']:.0f}  "
+                          f"right {m['left']:.0f}  up {m['up']:.0f}  "
+                          f"down {m['down']:.0f}  mm"]
+            if not rough and (best is None or worst > best):
                 best = worst
         else:
             tint = (60, 60, 255)
