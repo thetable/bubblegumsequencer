@@ -254,6 +254,25 @@ def open_camera(args):
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.height)
+
+    # Asking is not getting. A camera that will not do the size you asked for
+    # quietly gives you another one, and everything downstream is sized for
+    # the full frame: find_holes throws away any blob under 300 px, which at
+    # 640 x 480 is every hole on the board. It then reports a handful of
+    # detections and no reason, which is the kind of plausible wrong answer
+    # worth refusing to produce.
+    got = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+           int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    if got != (args.width, args.height):
+        print(f"  Camera is giving {got[0]} x {got[1]}, not the "
+              f"{args.width} x {args.height} asked for.")
+        print("  A hole is about 55 px across at full size and 12 px at VGA, "
+              "and the detector keeps nothing under 300 px of area.")
+        if SYSTEM == "win32":
+            print("  Check the camera really offers this size, in Windows "
+                  "Camera or `ffmpeg -list_options true -f dshow -i video=...`")
+        print(f"  Carry on with --width {got[0]} --height {got[1]} if that is "
+              "the most it will do, but expect to find few holes.")
     return cap
 
 
