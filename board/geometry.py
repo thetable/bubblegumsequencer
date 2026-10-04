@@ -405,23 +405,35 @@ def fit_warp(u, v, x, y, v_degree):
     return cx, cy
 
 
-def seed_labels(blobs, label):
+def seed_labels(blobs, label, order=None):
     """Column numbers for any row where all 16 holes were found.
 
-    A complete row needs no interpretation: sorted left to right, its blobs
+    A complete row needs no interpretation: sorted along the board, its blobs
     are columns 0 to 15. Two such rows are enough to bootstrap the warp, and
     the rest of the board is then read off the model rather than guessed.
+
+    Sorted by `order` when it is given, and by position in the frame when it
+    is not. The paper route gives it the board's own x, because the two
+    differ by a mirror whenever the camera is bolted in half a turn round,
+    and whether it is bolted in half a turn round lives in camera.json, which
+    is per machine. A second computer that has not been told produces a grid
+    numbered right to left: every hole correctly found, the sequence playing
+    backwards, and nothing anywhere reporting a problem. The tags say which
+    end of the board is which and no mounting can turn that around.
     """
+    if order is None:
+        order = [b["x"] for b in blobs]
     u, v, x, y = [], [], [], []
     complete = []
     for k in range(ROWS):
-        row = sorted([b for b, l in zip(blobs, label) if l == k], key=lambda b: b["x"])
+        row = sorted([i for i, l in enumerate(label) if l == k],
+                     key=lambda i: order[i])
         if len(row) == COLS:
             complete.append(k)
             u += list(range(COLS))
             v += [k] * COLS
-            x += [b["x"] for b in row]
-            y += [b["y"] for b in row]
+            x += [blobs[i]["x"] for i in row]
+            y += [blobs[i]["y"] for i in row]
     return u, v, x, y, complete
 
 
@@ -648,7 +660,7 @@ def label_rows_from_tags(blobs, forward):
     board = to_board(forward, [[b["x"], b["y"]] for b in blobs])
     on = np.where(np.abs(board[:, 1]) < OFF_GRID)[0]
     if len(on) < 2 * COLS:
-        return None
+        return None, None
 
     # Descending, so row 0 is the back edge. The tags put the BACK strip at
     # +1 and that end of the board images at the top; sorting the other way
@@ -657,13 +669,13 @@ def label_rows_from_tags(blobs, forward):
     gaps = -np.diff(board[order, 1])
     cuts = np.sort(np.argsort(gaps)[-(ROWS - 1):])
     if gaps[cuts].min() < ROW_GAP * np.sort(gaps)[-ROWS]:
-        return None            # the bands are not separated cleanly enough
+        return None, None      # the bands are not separated cleanly enough
 
     label = np.full(len(blobs), -1)
     for k, (a, c) in enumerate(zip([0] + [i + 1 for i in cuts],
                                    [i + 1 for i in cuts] + [len(order)])):
         label[order[a:c]] = k
-    return label
+    return label, board
 
 
 def cells_from_paper(gray, tags, sens=PAPER_SENS):
@@ -710,10 +722,11 @@ def cells_from_paper(gray, tags, sens=PAPER_SENS):
     best = None
     for sens in (sens if isinstance(sens, tuple) else (sens,)):
         blobs = find_holes(gray, whole, w / (COLS - 1), sens, polarity="bright")
-        label = label_rows_from_tags(blobs, forward) if blobs else None
+        label, board = (label_rows_from_tags(blobs, forward) if blobs
+                        else (None, None))
         if label is None:
             continue
-        u, v, x, y, complete = seed_labels(blobs, label)
+        u, v, x, y, complete = seed_labels(blobs, label, board[:, 0])
         score = (len(complete), int((label >= 0).sum()))
         if best is None or score > best[0]:
             best = (score, sens, blobs, label, u, v, x, y, complete)
@@ -863,9 +876,15 @@ def pitch_humped(px):
     A fit that comes out dished has locked onto the wrong columns, and it
     will fit its own mistake perfectly well, so the residual will not give it
     away. This is the check that does.
+
+    Magnitudes, because column 0 is the end of the board the tags call column
+    0, and that end images on the right when the camera is bolted in half a
+    turn round. The pitch is then negative all the way across and a signed
+    comparison calls a perfectly good grid dished.
     """
-    middle = np.diff(px[COLS // 2 - 2:COLS // 2 + 2]).mean()
-    edges = np.diff(px[:3]).mean(), np.diff(px[-3:]).mean()
+    step = np.abs(np.diff(px))
+    middle = step[COLS // 2 - 2:COLS // 2 + 1].mean()
+    edges = step[:2].mean(), step[-2:].mean()
     return middle > max(edges), middle, edges
 
 

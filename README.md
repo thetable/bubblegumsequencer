@@ -254,6 +254,17 @@ look at the terminal rather than for the window. And if the camera will not
 open at all, check Windows has not blocked it: Settings, Privacy and security,
 Camera, and let desktop apps use it.
 
+How the camera is bolted in is also recorded per machine, in `camera.json`,
+and it does not travel either. It no longer changes what the board reads:
+the tags say which end is which and the grid is numbered from them, so a
+machine that has not been told still plays the right way round. It only
+changes which way up the debug windows look. If you want them the right way
+up, once:
+
+```sh
+uv run play.py --rotate-180
+```
+
 Then `Bubblegum.bat`, or `uv run play.py`.
 
 ### On another Mac
