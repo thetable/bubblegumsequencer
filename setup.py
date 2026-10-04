@@ -393,6 +393,24 @@ def step_geometry(args):
 
     pitch = float(np.linalg.norm(np.float32(corners[1]) - np.float32(corners[0]))
                   / (geometry.COLS - 1))
+    # The strips, if they are on the board, settle this without looking at a
+    # single hole. Their pitch is printed and known, so where they land in
+    # the frame is a direct reading of how the lens bends, and the clicks say
+    # where the grid sits inside that. Hole detection is the part of this rig
+    # that will not hold still, so not needing it is the whole point.
+    strip_cells, strip_fit = geometry.cells_from_strips(tags, corners)
+    if strip_cells is not None:
+        print(f"   Placed from the tag strips, fitting them to {strip_fit:.1f} px."
+              "  No holes needed.")
+        geometry.save_reference(tags, strip_cells)
+        print(f"   Recorded against tags {sorted(tags)}. The board can move now.")
+        m = framing.margins(frame.shape, strip_cells, tags,
+                            geometry.COLS, geometry.ROWS)
+        if m:
+            print(f"   Room to slide: left {m['left']:.0f}  right {m['right']:.0f}"
+                  f"  up {m['up']:.0f}  down {m['down']:.0f} mm.")
+        return True
+
     blobs = geometry.find_holes(gray, corners, pitch, args.sens)
     total = geometry.COLS * geometry.ROWS
     print(f"   Found {len(blobs)} holes of {total}.")

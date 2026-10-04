@@ -441,6 +441,189 @@ def bend(u, k):
     return ((t + k * t ** 3) / (1 + k) + 1) / 2 * (COLS - 1)
 
 
+# The printed strips, from make_tags.py. Their spacing is the one ruler in
+# the picture that does not depend on the holes being visible.
+STRIP_PITCH_MM = 62.0
+GRID_H_MM = 105.0      # outer row centre to outer row centre
+COL_PITCH_MM = 24.0
+ROW_PITCH_MM = 35.0
+HOLE_MM = 12.0
+STRIP_TAG_MM = 22.0
+STRIP_IDS = (tuple(range(10, 15)), tuple(range(20, 25)))
+
+
+def strip_points(tags):
+    """Tag centres paired with where they sit on the board.
+
+    Centres, not corners. A corner is only meaningful once you know which one
+    the detector called first and which way round it went, and getting that
+    wrong fits the tags to 26 px instead of 1. A centre is the mean of four
+    points and has no such question.
+
+    Across the board the units are real millimetres, from the printed pitch.
+    Down it they are not: the strips went on by hand so their distance from
+    the grid is unknown, and one is called +1 and the other -1. That costs
+    nothing, because the map is linear in that direction and a linear map
+    cannot tell an affine relabelling from the truth. The grid rows sit
+    between them in the same units, and the corner clicks say where.
+    """
+    where = {t: (k, row) for row, ids in zip((1.0, -1.0), STRIP_IDS)
+             for k, t in enumerate(ids)}
+    board, image = [], []
+    for tag_id, corner in tags.items():
+        if tag_id not in where:
+            continue
+        k, row = where[tag_id]
+        board.append([(k - (len(STRIP_IDS[0]) - 1) / 2) * STRIP_PITCH_MM, row])
+        image.append(np.asarray(corner, float).reshape(-1, 2).mean(axis=0))
+    if len(board) < 10:
+        return None, None
+    return np.array(board, float), np.array(image, float)
+
+
+def board_basis(p):
+    """Cubic across the board, linear down it, and the two crossed.
+
+    The cross terms are not decoration. Without them the same ten tags fit to
+    18 px instead of 0.7: the amount the lens bends across the frame is itself
+    different at the top and the bottom, and a model that cannot say so is the
+    wrong shape.
+    """
+    p = np.asarray(p, float)
+    x = p[:, 0] / 200.0          # scaled so the fit is well conditioned
+    y = p[:, 1]
+    return np.stack([x ** i for i in range(4)] + [y]
+                    + [x ** i * y for i in range(1, 4)], axis=1)
+
+
+def fit_coeffs(board, image):
+    B = board_basis(board)
+    if len(board) <= B.shape[1]:
+        return None
+    cx, _, rank, _ = np.linalg.lstsq(B, image[:, 0], rcond=None)
+    if rank < B.shape[1]:
+        return None
+    cy = np.linalg.lstsq(B, image[:, 1], rcond=None)[0]
+    return cx, cy
+
+
+def fit_board_map(tags, corners=None):
+    """Board coordinates to image pixels, measured from the strips alone.
+
+    Needs both strips and most of their tags, which is the point of printing
+    them. Returns None when the board does not carry them.
+    """
+    board, image = strip_points(tags)
+    if board is None or len(set(board[:, 1])) < 2:
+        return None
+    got = fit_coeffs(board, image)
+    if got is None:
+        return None
+    cx, cy = got
+
+    # The tags only reach half way out. Asked for column zero the cubic is
+    # 56 mm past anything it has seen, and while its value holds up its slope
+    # does not: cells 0 and 1 came out almost on top of each other.
+    #
+    # The clicks are at the extremes and their column is known exactly, the
+    # grid being fifteen gaps of 24 mm wide. So they are added as constraints
+    # once their row has been read off the first fit. Two passes is enough.
+    if corners is not None:
+        half = (COLS - 1) / 2 * COL_PITCH_MM
+        want_x = np.array([-half, half, half, -half])
+        for _ in range(2):
+            forward = (lambda p, cx=cx, cy=cy:
+                       np.stack([board_basis(p) @ cx, board_basis(p) @ cy], axis=1))
+            rows = to_board(forward, corners)[:, 1]
+            board2 = np.vstack([board, np.column_stack([want_x, rows])])
+            image2 = np.vstack([image, np.asarray(corners, float)])
+            got = fit_coeffs(board2, image2)
+            if got is None:
+                break
+            cx, cy = got
+
+    B = board_basis(board)
+    resid = float(np.median(np.hypot(B @ cx - image[:, 0], B @ cy - image[:, 1])))
+    return (lambda p: np.stack([board_basis(p) @ cx, board_basis(p) @ cy], axis=1),
+            resid)
+
+
+def to_board(forward, pts, guess_span=(-200.0, 200.0)):
+    """Invert the map for a handful of points, by walking downhill.
+
+    Only ever used on the four clicks, so a short search is cheaper than
+    carrying an analytic inverse around.
+    """
+    out = []
+    for px, py in np.asarray(pts, float):
+        xs = np.linspace(guess_span[0], guess_span[1], 81)
+        ys = np.linspace(-1.6, 1.6, 41)
+        gx, gy = np.meshgrid(xs, ys)
+        cand = np.column_stack([gx.ravel(), gy.ravel()])
+        got = forward(cand)
+        i = int(np.argmin(np.hypot(got[:, 0] - px, got[:, 1] - py)))
+        bx, by = cand[i]
+        step = (xs[1] - xs[0], ys[1] - ys[0])
+        for _ in range(40):            # bisect around the winner
+            cand = np.array([[bx + a * step[0], by + b * step[1]]
+                             for a in (-1, 0, 1) for b in (-1, 0, 1)])
+            got = forward(cand)
+            i = int(np.argmin(np.hypot(got[:, 0] - px, got[:, 1] - py)))
+            bx, by = cand[i]
+            step = (step[0] / 1.7, step[1] / 1.7)
+        out.append([bx, by])
+    return np.array(out)
+
+
+def cells_from_strips(tags, corners):
+    """All 64 centres from the strips and the four clicks. No holes involved.
+
+    The strips give the shape of the lens, because their pitch is printed and
+    known. The clicks give where the grid sits inside it. Between them that is
+    everything, and none of it asks whether an empty hole happens to be
+    visible today, which on this rig is the one thing that will not hold still.
+    """
+    fitted = fit_board_map(tags, corners)
+    if fitted is None:
+        return None, None
+    forward, resid = fitted
+    quad = to_board(forward, corners)          # the clicks, in board terms
+    tl, tr, br, bl = quad
+
+    # The grid is regular in board coordinates, whatever the lens does to it.
+    cu = np.linspace(0.0, 1.0, COLS)
+    cv = np.linspace(0.0, 1.0, ROWS)
+    pts = []
+    for v in cv:
+        left = tl + (bl - tl) * v
+        right = tr + (br - tr) * v
+        for u in cu:
+            pts.append(left + (right - left) * u)
+    here = forward(np.array(pts))
+
+    # Sample ellipses from the spacing between cells, not from the map's
+    # own derivative. The value of a cubic extrapolates past the tags
+    # perfectly well; its slope does not, and taking the slope out at column
+    # zero gave a 4 px ellipse where the hole is nearer 11.
+    pts = np.array(pts)
+    gap_x = np.zeros(COLS * ROWS)
+    gap_y = np.zeros(COLS * ROWS)
+    for i in range(COLS * ROWS):
+        r, c = i // COLS, i % COLS
+        nc = i + 1 if c < COLS - 1 else i - 1
+        nr = i + COLS if r < ROWS - 1 else i - COLS
+        gap_x[i] = np.hypot(*(here[i] - here[nc]))
+        gap_y[i] = np.hypot(*(here[i] - here[nr]))
+    rx = HOLE_MM / 2 / COL_PITCH_MM * gap_x
+    ry = HOLE_MM / 2 / ROW_PITCH_MM * gap_y
+    cells = [{"idx": i, "row": i // COLS, "col": i % COLS,
+              "x": float(here[i][0]), "y": float(here[i][1]),
+              "rx": max(4, int(rx[i])), "ry": max(4, int(ry[i])),
+              "found": 0}
+             for i in range(COLS * ROWS)]
+    return cells, resid
+
+
 def seed_from_corners(blobs, corners, k=0.0):
     """A column and row for every blob, read off the four clicked corners.
 
