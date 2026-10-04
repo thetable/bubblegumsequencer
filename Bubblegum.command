@@ -42,4 +42,4 @@ fi
 # Anything wrong with the rig is reported by play.py itself, and it stops
 # rather than serving. Hold the window open so that it can be read: a Finder
 # launch has nowhere else to put it.
-uv run play.py --open || stay
+uv run play.py || stay

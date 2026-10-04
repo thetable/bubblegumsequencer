@@ -26,5 +26,5 @@ if errorlevel 1 (
 
 rem Anything wrong with the rig is reported by play.py itself, and it stops
 rem rather than serving. Hold the window open so that it can be read.
-uv run play.py --open
+uv run play.py
 if errorlevel 1 pause

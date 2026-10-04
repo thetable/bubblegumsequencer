@@ -11,7 +11,7 @@ plan assumed: nothing travels back from the browser, and one-way needs no
 handshake, no framing and no dependency.
 
 Usage:
-    python play.py                      # then open the printed address
+    python play.py                      # opens the browser at the address
     python play.py --image frame.png    # replay one frame, for working offline
 """
 
@@ -310,8 +310,12 @@ def main():
     ap.add_argument("--uvc-index", type=int, default=None,
                     help="uvc-util camera index; camera.json otherwise")
     ap.add_argument("--port", type=int, default=8099)
-    ap.add_argument("--open", action="store_true",
-                    help="open the browser as well, for Bubblegum.command")
+    # On by default: the browser is where the thing actually is, and every
+    # run wants it. --no-open is for the times you are restarting the server
+    # every few seconds and do not want a tab each time, and for a machine
+    # with no browser to open.
+    ap.add_argument("--no-open", dest="open", action="store_false",
+                    help="do not open the browser, just serve")
     ap.add_argument("--rotate-180", action="store_true",
                     help="the camera is bolted in end for end, cable out the "
                          "front. Written to camera.json: it is a fact about "
