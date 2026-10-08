@@ -334,6 +334,22 @@ def step_exposure(args):
     print("   what blows out, so they are what this has to see.")
     input("   Press return when ready. ")
 
+    # Said out loud because this step writes to the camera's own hardware and
+    # the write outlives us. The sweep walks a camera down to a few
+    # milliseconds, and on the wrong one that is somebody's video calls gone
+    # dark with nothing to say why.
+    seen = camera.uvc_devices()
+    if seen is not None:
+        at = seen.get(args.uvc_index)
+        want = camera.settings().get("device")
+        print(f"   About to set the exposure on uvc index {args.uvc_index}: "
+              f"{at or 'nothing there'}.")
+        if at and want and at != want:
+            print(f"   {want} is what this rig used last. Others connected: "
+                  + ", ".join(sorted(seen.values())))
+            if input("   Adopt this one instead? [y/N] ").strip().lower() != "y":
+                return False
+
     cap = camera.open_camera(args)
     if cap is None:
         return False
@@ -349,6 +365,46 @@ def step_exposure(args):
                     device=seen.get(args.uvc_index))
     print(f"   Saved to {camera.CAMERA_FILE}: {seen.get(args.uvc_index, 'camera')}"
           f" at exposure {value}.")
+    return True
+
+
+def step_cameras(args):
+    """What is plugged in, which one is the rig's, and who is pinned.
+
+    Worth a command of its own because a pinned exposure is written into the
+    camera rather than into us. It survives this process, every other app
+    sees it, and nothing anywhere attributes it. The one time that went wrong
+    it cost an afternoon of wondering why a monitor's webcam had gone dark.
+    """
+    print("\nCAMERAS")
+    rows = camera.survey()
+    if rows is None:
+        print("   uvc-util sees no UVC camera." if camera.ON_MAC else
+              "   Only macOS can be asked this; uvc-util is a Mac tool.")
+        return True
+
+    MODES = {1: "pinned manual", 2: "auto", 4: "shutter priority",
+             8: "auto (aperture priority)"}
+    for r in rows:
+        mark = "rig" if r["ours"] else "   "
+        mode = MODES.get(r["mode"], f"mode {r['mode']}" if r["mode"] else "?")
+        print(f"   {mark}  {r['index']}  {r['name']:<34} {mode}")
+
+    strays = [r for r in rows if not r["ours"] and r["mode"] == camera.UVC_MANUAL]
+    if not strays:
+        print("\n   Nothing but the rig's camera is pinned.")
+        return True
+
+    print(f"\n   {len(strays)} camera(s) not the rig's are on a fixed "
+          "exposure, which is")
+    print("   almost certainly us: the exposure used to be written by index, "
+          "and")
+    print("   indices move when you plug a monitor in.")
+    if input("   Hand them back to automatic? [y/N] ").strip().lower() != "y":
+        return True
+    for r in strays:
+        ok = camera.release(r["index"])
+        print(f"   {r['name']}: {'back on automatic' if ok else 'would not change'}")
     return True
 
 
@@ -551,6 +607,9 @@ def main():
     ap.add_argument("--uvc-index", type=int, default=None,
                     help="uvc-util camera index; camera.json otherwise")
     ap.add_argument("--display-width", type=int, default=1280)
+    ap.add_argument("--cameras", action="store_true",
+                    help="list the UVC cameras and un-pin any that are not "
+                         "the rig's")
     ap.add_argument("--no-mirror", action="store_true")
     ap.add_argument("--sens", type=float, default=1.25,
                     help="how much brighter than its surroundings a hole has "
@@ -570,6 +629,8 @@ def main():
     args = ap.parse_args()
     camera.resolve(args)
 
+    if args.cameras:
+        return 0 if step_cameras(args) else 1
     if args.survey:
         return 0 if step_survey(args) else 1
     if args.centre:

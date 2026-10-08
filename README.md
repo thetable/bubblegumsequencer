@@ -96,6 +96,18 @@ sit 56 mm past the outermost tag, forcing them into the fit bends it
 everywhere else, and the middle of the top and bottom rows lands about a
 third of a hole out.
 
+Pinning the exposure writes it into the camera's own hardware, not into this
+program. It stays after the program exits and every other app sees it, which
+is the point: the board looks the same tomorrow. It also means the rig's
+camera has to be identified by name rather than by index, since indices are
+USB enumeration order and plugging a monitor in renumbers everything. If some
+other camera has ended up pinned, this lists what is connected and offers to
+hand the strangers back to automatic:
+
+```sh
+uv run setup.py --cameras
+```
+
 Individual steps, when only one thing has changed:
 
 ```sh

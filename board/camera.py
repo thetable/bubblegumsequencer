@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import shutil
+import re
 import subprocess
 import sys
 import tempfile
@@ -169,14 +170,50 @@ def remember(**fields):
 def resolve(args):
     """Fill in whatever the command line left out, from camera.json.
 
+    The uvc index is looked up by name rather than taken from the file, and
+    that is not tidiness. Exposure is not a setting on our process: uvc-util
+    writes it into the camera's own hardware, where it stays after we exit
+    and shows up in every other app that opens that camera. Write it to the
+    wrong index and you have dimmed somebody's video calls, indefinitely,
+    with nothing on screen to say why.
+
+    The indices move. They are USB enumeration order, so plugging a monitor
+    in ahead of the board's camera renumbers both, and the stored 0 then
+    names the monitor's webcam. The name does not move, so the name decides.
+
     Returns the expected device name, or None if the rig has never said.
     """
     kept = settings()
     if getattr(args, "index", None) is None:
         args.index = kept.get("index", 0)
+    want = kept.get("device")
     if getattr(args, "uvc_index", None) is None:
         args.uvc_index = kept.get("uvc_index", 0)
-    return kept.get("device")
+        here = uvc_index_of(want)
+        if here is not None and here != args.uvc_index:
+            print(f"  {want} has moved to uvc index {here}, "
+                  f"not the {args.uvc_index} in {CAMERA_FILE}. Using {here}.")
+            args.uvc_index = here
+    return want
+
+
+def uvc_index_of(name):
+    """Where the named camera is on the USB bus now, or None if it is not.
+
+    None covers three different things on purpose: no name recorded, uvc-util
+    unavailable (every machine that is not a Mac), and the camera not plugged
+    in. All three mean the same to the caller, which is that the index cannot
+    be confirmed and nothing should be written on the strength of it.
+    """
+    if not name:
+        return None
+    seen = uvc_devices()
+    if not seen:
+        return None
+    for index, found in sorted(seen.items()):
+        if found == name:
+            return index
+    return None
 
 
 def uvc_devices():
@@ -201,6 +238,47 @@ def uvc_devices():
         if bits and bits[0].isdigit():
             found[int(bits[0])] = bits[-1]
     return found
+
+
+def exposure_mode(index):
+    """Whether this camera is on auto or has been pinned, or None if unknown.
+
+    uvc-util's -o prints the bare value, but it brackets some controls, so
+    the number is dug out rather than parsed positionally.
+    """
+    got = uvc_util(index, "-o", "auto-exposure-mode")
+    if got is None:
+        return None
+    digits = re.findall(r"\d+", got)
+    return int(digits[-1]) if digits else None
+
+
+def release(index):
+    """Hand one camera back to its own automatic exposure.
+
+    Aperture priority first, since that is the mode this rig turns off to
+    pin an exposure, then the control's own default for the cameras that do
+    not offer it. One of the two is accepted by anything with the control at
+    all, and a camera without it was never pinned by us in the first place.
+    """
+    if set_exposure(None, index, None):
+        return True
+    return uvc_util(index, "-s", "auto-exposure-mode=default") is not None
+
+
+def survey():
+    """Every UVC camera, with its index, name and whether it is pinned.
+
+    Here because the pinning is invisible from outside. A camera left on
+    manual looks like a camera with a dark picture, and nothing in macOS says
+    which app did it or that it was done at all.
+    """
+    seen = uvc_devices()
+    if not seen:
+        return None
+    want = settings().get("device")
+    return [{"index": i, "name": n, "ours": n == want, "mode": exposure_mode(i)}
+            for i, n in sorted(seen.items())]
 
 
 def clipped_fraction(frame, corners=None):
@@ -352,6 +430,20 @@ def apply_pinned(cap, index):
               f"{SYSTEM}, where that number means something else.")
         print("  Leaving it automatic. Run:  python setup.py --exposure")
         return None
+
+    # Last check before writing to hardware that is not ours to write to. The
+    # index was resolved by name on the way in, so a mismatch here means
+    # something changed since, and a manual exposure left on a stranger's
+    # camera outlives this process.
+    want = kept.get("device")
+    if ON_MAC and want:
+        seen = uvc_devices() or {}
+        at = seen.get(index)
+        if at != want:
+            print(f"  uvc index {index} is {at or 'nothing'}, not {want}.")
+            print("  Not setting an exposure on it: the setting would stay on "
+                  "that camera after this exits.")
+            return None
     set_exposure(cap, index, value)
     return value
 
